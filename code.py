@@ -4,6 +4,7 @@ from sklearn.manifold import TSNE
 import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score
 from dotenv import load_dotenv
 from mistralai import Mistral
 
@@ -29,6 +30,22 @@ reduced_embeddings = tsne.fit_transform(np.array(embeddings))
 # kmeans clustering on reduced embeddings vector
 kmeans = KMeans(n_clusters=5, random_state=0)
 clusters = kmeans.fit_predict(np.array(reduced_embeddings))
+
+# determine optimum number of clusters using silhouette score
+scs = []
+n_clusters_range = np.arange(2,len(positions),1)
+for n_clusters in n_clusters_range:
+    _kmeans = KMeans(n_clusters=n_clusters, random_state=0)
+    _clusters = _kmeans.fit_predict(np.array(reduced_embeddings))
+    _sc = silhouette_score(reduced_embeddings, _clusters)
+    scs.append(_sc)
+optimum_n_clusters = n_clusters_range[np.argmax(scs)]
+
+
+# run final kmeans with optimal clusters
+kmeans = KMeans(n_clusters=optimum_n_clusters, random_state=0)
+clusters = kmeans.fit_predict(np.array(reduced_embeddings))
+
 
 # plot the results:
 colors = ['r', 'g', 'b', 'k', 'm']
