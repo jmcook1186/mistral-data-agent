@@ -99,8 +99,9 @@ def run_pipeline(file_path):
     # Topic modeling
     lda, vectorizer = perform_topic_modeling(positions)
     print("Topics identified:")
+    topic_string = ""
     for idx, topic in enumerate(lda.components_):
-        print(f"Topic {idx}: {', '.join([vectorizer.get_feature_names_out()[i] for i in topic.argsort()[-5:]])}")
+        topic_string = topic_string + (f"Topic {idx}: {', '.join([vectorizer.get_feature_names_out()[i] for i in topic.argsort()[-5:]])}")
 
     # Sentiment analysis
     sentiments = analyze_sentiment(positions)
@@ -111,7 +112,7 @@ def run_pipeline(file_path):
     plt.ylabel('Frequency')
     plt.show()
 
-    return clusters, reduced_embeddings, lda, sentiments
+    return clusters, reduced_embeddings, lda, sentiments, topic_string
 
 # Run the pipeline
 if __name__ == "__main__":
