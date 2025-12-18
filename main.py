@@ -16,6 +16,10 @@ file_path = os.getenv("FILE_PATH")
 with open("consensus_metrics.py", "r") as f:
     script = f.read()
 
+# load input data to pass to Dev
+with open(file_path, "r") as f:
+    input_data = f.read()
+
 # load_prompt
 with open("prompts/whisper_message.txt", "r") as f:
     whisper_message = f.read()
@@ -52,7 +56,7 @@ try:
     for i in range(len(spec_response.outputs)):
         try:
             specification = spec_response.outputs[i].content
-        except(AttributeError):
+        except AttributeError:
             continue
 except:
     print("CANNOT FIND APPROPRIATE SPEC RESPONSE DATA")
@@ -61,19 +65,18 @@ with open("outputs/specification.md", "x") as f:
     f.write(specification[0].text)
 
 
-
 # Call Dev agent
 print("Calling Dev")
 dev_response = client.beta.conversations.start(
     agent_id=dev.id,
-    inputs=f"{specification} \n\n Existing script to extend and run: {script}",
+    inputs=f"{specification} \n\n Existing script to extend and run: {script} \n\n input csv data to run analysis on: {input_data}",
 )
 
 with open("outputs/dev.md", "x") as f:
     for i in dev_response.outputs:
         try:
             f.write(i.content)
-        except(AttributeError):
+        except AttributeError:
             f.write(i.arguments)
         except:
             "skipping"
