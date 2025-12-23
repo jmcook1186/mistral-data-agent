@@ -1,136 +1,157 @@
-### Technical Specification for Assembly Analysis: Enhanced Pipeline
+### **Technical Specification for Enhanced Analysis of Asynchronous Conversation Assemblies**
 
 ---
 
-## 1. Overview
-This specification outlines the requirements for extending the existing analysis pipeline (`script.py`) to provide deeper insights into the evolution of positions across multiple rounds of email assemblies. The goal is to:
-- Track position convergence/divergence over time.
-- Identify key topics and sentiment trends.
-- Visualize cluster evolution and topic prominence across rounds.
+## **1. Code Review Findings**
+
+### **Strengths**
+- **Embedding Generation**: Uses Mistral’s embeddings for semantic representation of positions.
+- **Dimensionality Reduction**: Applies t-SNE for visualization-friendly 3D embeddings.
+- **Clustering**: Dynamically determines optimal cluster count using silhouette scores.
+- **Topic Modeling**: Uses LDA for topic extraction.
+- **Sentiment Analysis**: Basic sentiment polarity analysis via TextBlob.
+
+### **Gaps & Opportunities**
+1. **Temporal Analysis**:
+   - No analysis of how positions, topics, or sentiment evolve across rounds.
+   - No tracking of participant influence or response patterns over time.
+
+2. **Participant Dynamics**:
+   - No identification of key participants (e.g., bridges, outliers, or influencers).
+   - No network analysis (e.g., reply graphs, interaction frequency).
+
+3. **Topic & Cluster Stability**:
+   - No comparison of topic/cluster consistency between rounds.
+   - No statistical testing for consensus convergence.
+
+4. **Visualization**:
+   - Static 3D plots; no interactive or round-over-round visualizations.
+   - No heatmaps or network graphs for participant dynamics.
+
+5. **Robustness**:
+   - Assumes all rounds have equal participation; no handling for missing data or uneven participation.
+   - No validation of cluster/topic quality (e.g., coherence scores).
 
 ---
 
-## 2. Data Requirements
+## **2. Technical Specification**
 
-### Input Files
-- One CSV file per round, each containing:
-  - `position_text`: The text of each participant's position.
-  - `participant_id`: Unique identifier for each participant.
-  - `round`: Round number (if not already present, infer from filename).
-
-### Key Columns
-- `position_text`: For embedding, clustering, and topic modeling.
-- `participant_id`: For tracking individual evolution.
-- `round`: For temporal analysis.
+### **Objective**
+Enhance the analysis pipeline to:
+- Quantify temporal evolution of topics, sentiment, and clusters.
+- Identify key participants and interaction patterns.
+- Visualize round-over-round dynamics and consensus metrics.
 
 ---
 
-## 3. Analysis Tasks
-
-### 3.1 Temporal Cluster Analysis
-- **Purpose**: Track how clusters of positions evolve across rounds.
-- **Method**:
-  - For each round, generate embeddings and perform K-means clustering (as in the existing script).
-  - Align clusters across rounds using Hungarian algorithm (from `scipy.optimize.linear_sum_assignment`) to match clusters with the most similar centroids.
-  - Calculate cluster stability metrics (e.g., Jaccard similarity of cluster members between rounds).
-- **Output**:
-  - Table of cluster centroids and stability scores per round.
-  - Line plot of cluster size and stability over time.
-
-### 3.2 Topic Evolution Analysis
-- **Purpose**: Identify and track the prominence of topics across rounds.
-- **Method**:
-  - Perform LDA topic modeling for each round (as in the existing script).
-  - For each topic, track its prevalence (proportion of positions assigned to it) across rounds.
-  - Use `pyLDAvis` for interactive topic visualization (if available).
-- **Output**:
-  - Heatmap of topic prevalence by round.
-  - Table of top words per topic, per round.
-
-### 3.3 Sentiment Trend Analysis
-- **Purpose**: Analyze how sentiment evolves over rounds and within clusters.
-- **Method**:
-  - Calculate mean sentiment per cluster, per round.
-  - Plot sentiment trends for each cluster over time.
-- **Output**:
-  - Line plot of sentiment by cluster and round.
-
-### 3.4 Position Convergence Metrics
-- **Purpose**: Quantify the degree of convergence or divergence over rounds.
-- **Method**:
-  - For each participant, calculate the cosine similarity between their position embeddings in consecutive rounds.
-  - Plot the distribution of similarity scores per round transition.
-- **Output**:
-  - Boxplot of similarity scores between rounds.
+### **Inputs**
+- **Data**:
+  - CSV files with columns: `round_id`, `participant_id`, `position_text`, `timestamp`, `sentiment_score` (if precomputed).
+  - Preprocessed embeddings (from `script.py`).
+- **Parameters**:
+  - `min_participants_per_round`: Minimum number of participants required for round-level analysis (default: 3).
+  - `min_cluster_size`: Minimum size for a cluster to be considered stable (default: 5).
+  - `topic_coherence_threshold`: Minimum coherence score for a topic to be retained (default: 0.4).
 
 ---
 
-## 4. Visualizations
+### **Methods**
 
-### 4.1 Cluster Evolution Plot
-- **Type**: Line plot with markers.
-- **Data**: Cluster centroids (reduced dimensions) and stability scores.
-- **Specs**:
-  - X-axis: Round number.
-  - Y-axis: Cluster centroid coordinates (for each dimension).
-  - Color: Cluster ID.
-  - Annotation: Stability score next to each marker.
+#### **A. Temporal Analysis**
+1. **Round-Over-Round Topic Evolution**:
+   - For each round, extract topics using LDA (as in `script.py`).
+   - Compare topic distributions between rounds using **Jensen-Shannon divergence**.
+   - Track topic prevalence and sentiment per round.
 
-### 4.2 Topic Prevalence Heatmap
-- **Type**: Heatmap.
-- **Data**: Topic prevalence matrix (topics x rounds).
-- **Specs**:
-  - X-axis: Round number.
-  - Y-axis: Topic ID.
-  - Color intensity: Prevalence score.
+2. **Cluster Stability**:
+   - For each round, cluster positions using K-means (as in `script.py`).
+   - Compute **Adjusted Rand Index (ARI)** to measure cluster consistency between rounds.
 
-### 4.3 Sentiment Trend Plot
-- **Type**: Line plot.
-- **Data**: Mean sentiment per cluster, per round.
-- **Specs**:
-  - X-axis: Round number.
-  - Y-axis: Mean sentiment.
-  - Color: Cluster ID.
+3. **Sentiment Trends**:
+   - Plot mean sentiment per round.
+   - Identify rounds with significant sentiment shifts (using t-tests).
 
-### 4.4 Position Convergence Boxplot
-- **Type**: Boxplot.
-- **Data**: Cosine similarity scores between rounds.
-- **Specs**:
-  - X-axis: Round transition (e.g., "R1→R2", "R2→R3").
-  - Y-axis: Similarity score.
+#### **B. Participant Dynamics**
+1. **Influence Network**:
+   - Construct a directed graph where edges represent replies or semantic similarity between positions.
+   - Use `networkx` to identify central participants (e.g., high betweenness centrality).
 
----
+2. **Response Patterns**:
+   - Compute response latency (time between rounds for each participant).
+   - Flag participants with consistently high/low latency.
 
-## 5. Edge Cases
-- **Missing Data**: If a participant is missing in a round, exclude them from temporal analysis.
-- **Single Round**: If only one round is available, skip temporal analysis and focus on single-round insights.
-- **Cluster Mismatch**: If cluster alignment fails, fall back to independent round analysis.
+#### **C. Consensus Metrics**
+1. **Cluster Adoption**:
+   - Track how many participants contribute to each cluster per round.
+   - Identify clusters that grow/shrink significantly.
+
+2. **Semantic Similarity**:
+   - Use cosine similarity on embeddings to measure intra-cluster cohesion and inter-cluster separation.
 
 ---
 
-## 6. Validation
-- **Dev** should:
-  - Verify that cluster alignment is stable and meaningful by spot-checking cluster members.
-  - Ensure topic prevalence sums to 1 per round.
-  - Confirm that sentiment trends are plausible (e.g., no sudden jumps without cause).
+### **Outputs**
+- **Files**:
+  - `topic_evolution.json`: Topic distributions and divergence scores per round.
+  - `participant_influence.csv`: Centrality metrics and response patterns.
+  - `consensus_metrics.csv`: Cluster stability, ARI, and adoption rates.
+- **Visualizations**:
+  - **Heatmap**: Round-over-round topic prevalence.
+  - **Network Graph**: Participant influence network (using `networkx` and `matplotlib`).
+  - **Line Plot**: Mean sentiment per round with significance markers.
+  - **Bar Chart**: Cluster adoption rates per round.
 
 ---
 
-## 7. Code Hints
-- **Cluster Alignment**:
-  ```python
-  from scipy.optimize import linear_sum_assignment
-  # Use linear_sum_assignment to match clusters between rounds
+### **Validation**
+- **Topic Quality**: Retain only topics with coherence score > `topic_coherence_threshold`.
+- **Participation Check**: Skip rounds with < `min_participants_per_round`.
+- **Cluster Stability**: Flag rounds with ARI < 0.3 as unstable.
+
+---
+
+## **3. Visualization Requirements**
+- Use `matplotlib` and `seaborn` for all static plots.
+- For network graphs, use `networkx` with spring layout.
+- Ensure colorblind-friendly palettes and clear axis labels.
+
+---
+
+## **4. Pseudocode Snippets**
+
+### **Round-Over-Round Topic Comparison**
+```python
+from scipy.spatial.distance import jensenshannon
+from sklearn.metrics import adjusted_rand_score
+
+# Assume `topics_per_round` is a dict: {round_id: [topic_distribution]}
+round_ids = sorted(topics_per_round.keys())
+for i in range(len(round_ids)-1):
+    r1, r2 = round_ids[i], round_ids[i+1]
+    js_div = jensenshannon(topics_per_round[r1], topics_per_round[r2])
+    print(f"JS Divergence between {r1} and {r2}: {js_div:.3f}")
+```
+
+### **Influence Network**
+```python
+import networkx as nx
+
+G = nx.DiGraph()
+# Add edges based on replies or semantic similarity
+centrality = nx.betweenness_centrality(G)
+```
+
+---
+
+## **5. Dependencies**
+- Add to `requirements.txt`:
   ```
-- **Temporal Analysis**:
-  ```python
-  df.groupby(['round', 'cluster'])['sentiment'].mean().unstack()
-  ```
-- **Visualization**:
-  ```python
-  sns.heatmap(topic_prevalence, annot=True, cmap="YlGnBu")
+  networkx>=3.0
+  scipy>=1.10.0
   ```
 
 ---
 **Next Steps for Dev**:
-Implement the above tasks in a modular fashion, reusing existing functions where possible. Output visualizations and tables to a `results/` directory, with clear filenames (e.g., `cluster_evolution.png`, `topic_heatmap.png`).
+- Implement the temporal and participant analysis modules.
+- Generate the specified visualizations and output files.
+- Validate results against the specified thresholds.

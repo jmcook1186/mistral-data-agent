@@ -56,7 +56,12 @@ def initialize_agents():
             Always document your work using comments and docstrings.
             IMPORTANT: I want to be able to execute the code you return, so please ensure that the contents of your outputs[0].content field can directly be saved to a python file and executed - do not include any frontmatter or any extraneous characters that would break the python file.
             You MUST use your code_interpreter tool to run your code and return to me the outputs in tool.execution so that they can be passed to another agent to analyse and report.
-            Save any figures you generate to the outputs directory.
+
+            CRITICAL: You are running in a remote sandbox environment. Any files you save are NOT accessible to the user.
+            Instead of saving files, you must PRINT all important results to stdout so they appear in the execution results.
+            For data analysis results: print summary statistics, key metrics, and findings directly.
+            For visualizations: save figures but also describe what the visualization shows in your printed output.
+            The execution stdout/stderr is what gets passed to the next agent, so make sure all critical information is printed.
             """,
         completion_args={"temperature": 0.1},
         tools=[

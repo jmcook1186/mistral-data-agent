@@ -8,6 +8,20 @@ from agents.agents import initialize_agents
 
 load_dotenv()
 
+# ============================================================================
+# CONFIGURATION
+# ============================================================================
+# Data handling thresholds (in bytes)
+FULL_DATA_THRESHOLD = 50000      # < 50KB: pass full dataset
+SAMPLE_DATA_THRESHOLD = 500000   # 50KB - 500KB: use random sample
+# > 500KB: use summary statistics only
+
+# Sample size for medium datasets
+SAMPLE_SIZE = 500  # rows
+
+# Random seed for reproducible sampling
+RANDOM_SEED = 42
+
 # Validate environment variables
 api_key = os.getenv("MISTRAL_API_KEY")
 file_path = os.getenv("FILE_PATH")
@@ -30,11 +44,98 @@ except FileNotFoundError:
 except Exception as e:
     raise Exception(f"Error reading consensus_metrics.py: {e}")
 
-# Load input data
+# Load input data - pass full data, sample, or summary depending on size
 try:
-    with open(file_path, "r") as f:
-        input_data = f.read()
-    print(f"✓ Loaded input data from {file_path}")
+    # Load the CSV to analyze it
+    df = pd.read_csv(file_path)
+
+    print(f"✓ Loaded data from {file_path}")
+    print(f"  - {df.shape[0]} rows × {df.shape[1]} columns")
+
+    # Decide whether to pass full data, sample, or summary based on size
+    full_csv = df.to_csv(index=False)
+    csv_size_kb = len(full_csv) / 1024
+
+    if len(full_csv) > SAMPLE_DATA_THRESHOLD:  # More than 500KB by default
+        # For very large files, pass summary statistics instead of raw data
+        print(f"  - Dataset is very large ({csv_size_kb:.1f}KB), using summary statistics")
+
+        # Generate comprehensive summary statistics
+        summary_parts = []
+        summary_parts.append(f"Dataset Shape: {df.shape[0]} rows × {df.shape[1]} columns")
+        summary_parts.append(f"\nColumn Information:")
+        summary_parts.append(f"Columns: {list(df.columns)}")
+        summary_parts.append(f"Data Types:\n{df.dtypes.to_string()}")
+
+        # Numeric columns statistics
+        if len(df.select_dtypes(include=[np.number]).columns) > 0:
+            summary_parts.append(f"\nNumeric Column Statistics:")
+            summary_parts.append(df.describe().to_string())
+
+        # Text column info (if position_text exists)
+        if 'position_text' in df.columns:
+            summary_parts.append(f"\nText Column ('position_text') Statistics:")
+            summary_parts.append(f"  - Non-null count: {df['position_text'].notna().sum()}")
+            summary_parts.append(f"  - Null count: {df['position_text'].isna().sum()}")
+            summary_parts.append(f"  - Avg length: {df['position_text'].str.len().mean():.1f} chars")
+            summary_parts.append(f"  - Min length: {df['position_text'].str.len().min()}")
+            summary_parts.append(f"  - Max length: {df['position_text'].str.len().max()}")
+
+            # Include a small sample of actual text
+            sample_texts = df['position_text'].dropna().head(20)
+            summary_parts.append(f"\nSample Text Entries (first 20):")
+            for idx, text in enumerate(sample_texts, 1):
+                # Truncate long texts
+                display_text = text[:200] + "..." if len(text) > 200 else text
+                summary_parts.append(f"{idx}. {display_text}")
+
+        # Categorical columns value counts
+        categorical_cols = df.select_dtypes(include=['object', 'category']).columns
+        for col in categorical_cols:
+            if col != 'position_text':  # Already handled above
+                summary_parts.append(f"\nColumn '{col}' value counts:")
+                summary_parts.append(df[col].value_counts().head(20).to_string())
+
+        data_summary = "\n".join(summary_parts)
+
+        data_info = {
+            'mode': 'summary',
+            'total_rows': df.shape[0],
+            'total_cols': df.shape[1],
+            'data_summary': data_summary,
+            'note': f"NOTE: Dataset is very large ({csv_size_kb:.1f}KB). Providing summary statistics instead of raw data. Full dataset has {df.shape[0]} rows."
+        }
+
+    elif len(full_csv) > FULL_DATA_THRESHOLD:  # Between 50KB and 500KB by default
+        # Use a larger random sample
+        sample_size = min(SAMPLE_SIZE, df.shape[0])  # Take up to configured sample size
+
+        # Use random sampling instead of just head() for better representation
+        if df.shape[0] > sample_size:
+            df_sample = df.sample(n=sample_size, random_state=RANDOM_SEED)
+        else:
+            df_sample = df
+
+        data_csv = df_sample.to_csv(index=False)
+
+        data_info = {
+            'mode': 'sample',
+            'sample_size': sample_size,
+            'total_rows': df.shape[0],
+            'csv_data': data_csv,
+            'note': f"NOTE: This is a random sample of {sample_size} rows from {df.shape[0]} total rows. The sample is representative of the full dataset."
+        }
+        print(f"  - Dataset is large ({csv_size_kb:.1f}KB), using random sample of {sample_size} rows")
+    else:
+        # Pass full dataset
+        data_info = {
+            'mode': 'full',
+            'total_rows': df.shape[0],
+            'csv_data': full_csv,
+            'note': "This is the complete dataset."
+        }
+        print(f"  - Passing full dataset to Dev agent ({csv_size_kb:.1f}KB)")
+
 except FileNotFoundError:
     raise FileNotFoundError(f"Data file not found: {file_path}")
 except Exception as e:
@@ -161,9 +262,70 @@ print("CALLING DEV AGENT")
 print("=" * 80)
 
 try:
+    # Build Dev prompt based on data mode
+    if data_info['mode'] == 'summary':
+        # For very large files, pass summary statistics
+        dev_prompt = f"""
+{specification_text}
+
+## Existing Python Script to Extend and Run:
+
+```python
+{script}
+```
+
+## Input Data Summary:
+
+{data_info['note']}
+
+{data_info['data_summary']}
+
+IMPORTANT: The full dataset contains {data_info['total_rows']} rows and {data_info['total_cols']} columns.
+Since the dataset is too large to pass directly, use the summary statistics above to:
+1. Understand the data structure and distributions
+2. Design appropriate analyses and visualizations
+3. Generate synthetic or representative data if needed for demonstration purposes
+4. Focus on statistical insights that can be derived from the summary
+
+Execute the analysis and print all key results, metrics, and findings to stdout so they can be passed to the next agent.
+"""
+    else:
+        # For full or sample data, embed CSV
+        dev_prompt = f"""
+{specification_text}
+
+## Existing Python Script to Extend and Run:
+
+```python
+{script}
+```
+
+## Input CSV Data:
+
+{data_info['note']}
+
+```csv
+{data_info['csv_data']}
+```
+
+IMPORTANT: Load this CSV data using pandas:
+```python
+import pandas as pd
+from io import StringIO
+
+csv_data = '''
+{data_info['csv_data']}
+'''
+
+df = pd.read_csv(StringIO(csv_data))
+```
+
+Execute the analysis code and print all key results, metrics, and findings to stdout so they can be passed to the next agent.
+"""
+
     dev_response = client.beta.conversations.start(
         agent_id=dev.id,
-        inputs=f"{specification_text} \n\n Existing script to extend and run: {script} \n\n input csv data to run analysis on: {input_data}",
+        inputs=dev_prompt,
     )
     print(f"✓ Dev responded with {len(dev_response.outputs)} output(s)")
 except Exception as e:
@@ -252,25 +414,35 @@ print("CALLING QUANT AGENT")
 print("=" * 80)
 
 # Prepare data for Quant agent - combine all text and execution results
-quant_input_parts = [quant_message, "\n## Dev Agent Analysis Results\n"]
+quant_input_parts = []
+
+# Add quant message
+quant_input_parts.append(str(quant_message))
+quant_input_parts.append("\n## Dev Agent Analysis Results\n")
 
 if dev_text_content:
     quant_input_parts.append("\n### Dev Messages\n")
-    quant_input_parts.extend(dev_text_content)
+    # Ensure each item is a string
+    for content in dev_text_content:
+        quant_input_parts.append(str(content))
 
 if dev_code_executions:
     quant_input_parts.append("\n## Code Execution Output\n")
     for idx, exec_result in enumerate(dev_code_executions, 1):
         quant_input_parts.append(f"\n### Execution {idx}\n")
         if exec_result['stdout']:
-            quant_input_parts.append(f"\n**stdout:**\n```\n{exec_result['stdout']}\n```\n")
+            quant_input_parts.append(f"\n**stdout:**\n```\n{str(exec_result['stdout'])}\n```\n")
         if exec_result['stderr']:
-            quant_input_parts.append(f"\n**stderr:**\n```\n{exec_result['stderr']}\n```\n")
+            quant_input_parts.append(f"\n**stderr:**\n```\n{str(exec_result['stderr'])}\n```\n")
         if exec_result['result']:
-            quant_input_parts.append(f"\n**result:** {exec_result['result']}\n")
+            # Convert result to string (handles lists, dicts, etc.)
+            result_str = str(exec_result['result'])
+            quant_input_parts.append(f"\n**result:** {result_str}\n")
 else:
     quant_input_parts.append("\n⚠ Note: No code execution results available from Dev agent.\n")
 
+# Ensure all parts are strings before joining
+quant_input_parts = [str(part) for part in quant_input_parts]
 quant_input_data = "\n".join(quant_input_parts)
 print(f"Prepared Quant input ({len(quant_input_data)} chars)")
 

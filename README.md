@@ -88,6 +88,23 @@ FILE_PATH=/path/to/your/data.csv
 
 The CSV file must contain a column named `position_text` with the text data to analyze.
 
+### Handling Large CSV Files
+
+The system automatically handles different file sizes using a three-tier approach:
+
+- **< 50KB**: Full dataset passed to Dev agent
+- **50KB - 500KB**: Random sample (500 rows by default) passed to Dev agent
+- **> 500KB**: Summary statistics and sample texts passed instead of raw data
+
+For large files, you can adjust thresholds in `main.py`:
+```python
+FULL_DATA_THRESHOLD = 50000      # Increase to pass more full data
+SAMPLE_DATA_THRESHOLD = 500000   # Increase to allow larger samples
+SAMPLE_SIZE = 500                # Increase sample size (e.g., 1000 rows)
+```
+
+**See [LARGE_FILES.md](LARGE_FILES.md) for detailed guidance on analyzing large datasets.**
+
 ## Usage
 
 ### Run the Full Multi-Agent System (Recommended)
@@ -149,8 +166,10 @@ mistral-data-agent/
 │   ├── quant_out.md           # Quant's analysis report
 │   └── summary_report_example.md  # Example output from earlier single-agent version
 ├── requirements.txt           # Python dependencies
+├── environment.yml            # Conda environment specification
 ├── .env                       # Environment configuration (not in git)
 ├── .gitignore                 # Git ignore rules
+├── LARGE_FILES.md             # Guide for handling large CSV files
 └── README.md                  # This file
 ```
 
