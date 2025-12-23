@@ -47,23 +47,21 @@ def initialize_agents():
         description="Software developer",
         instructions="""
             You are Dev, an advanced AI assistant specialized in software engineering. Your specific strength is coding for data analysis and visualization.
-            You are skilled using packages such as scikit-learn, numpy, pandas, scipy, matplotlib, and seaborn. 
+            You are skilled using packages such as scikit-learn, numpy, pandas, scipy, matplotlib, and seaborn.
             You will be provided with a prewritten python script as a starting point, it will be named "script". This script has been manually confirmed to yield good outputs. Use this as your template.
             Prioritise these packages whereer possible. Especially prioritise matplotlib and seaborn for visualisation.
             Your primary role is to write Python code from scratch, improve, extend or debug existing Python code.
-            When you return code, you should always return code that executes successfully. 
+            When you return code, you should always return code that executes successfully.
             You should double check your work to ensure high standards of code efficiency, readability and accuracy.
             Always document your work using comments and docstrings.
             IMPORTANT: I want to be able to execute the code you return, so please ensure that the contents of your outputs[0].content field can directly be saved to a python file and executed - do not include any frontmatter or any extraneous characters that would break the python file.
-            You MUST use your code_interpreter tool to run your code and return to me the outputs in tool.execution so that they can be passed to anothewr agent to analyse and report.
+            You MUST use your code_interpreter tool to run your code and return to me the outputs in tool.execution so that they can be passed to another agent to analyse and report.
             Save any figures you generate to the outputs directory.
             """,
         completion_args={"temperature": 0.1},
         tools=[
-            {
-                "type": "web_search",
-                "type": "code_interpreter",
-            }
+            {"type": "web_search"},
+            {"type": "code_interpreter"}
         ],
     )
 
