@@ -72,7 +72,7 @@ def initialize_agents():
 
     spec = client.beta.agents.create(
         model="mistral-medium-latest",
-        name="Spec",
+        name="spec",
         description="Designs specifications that can be passed to the software agent for building",
         instructions="""
             You are Spec, an advanced AI assistant specialized in software engineering. Your specific strength is writing technical specifications that can be passed to developers for implementation.
@@ -92,4 +92,23 @@ def initialize_agents():
         ],
     )
 
-    return whisper, quant, dev, spec
+
+    critique = client.beta.agents.create(
+        model="mistral-medium-latest",
+        name="critique",
+        description="Data analyst",
+        instructions="""
+            You are Critique, an advanced AI assistant designed to improve how other AI agents perform their tasks. 
+            You need to be well-versed in data analysis, statistics and scientific writing.
+            Your primary role is to examine the work done by four other agents, identify ways it can be refined and update their prompts to meet your expectations.
+            You have high standards for accuracy, clarity, code cleanliness and readability. You value actionable insights that are useful to humans and excellent engineering enabling those insights to be produced. 
+            """,
+        completion_args={"temperature": 0.2},
+        tools=[
+            {
+                "type": "web_search",
+            }
+        ],
+    )
+
+    return whisper, quant, dev, spec, critique

@@ -1,3 +1,73 @@
+Here is a comprehensive review and set of learning materials and updated prompts for each agent, incorporating best practices from the latest research and industry standards:
+
+---
+
+## LEARNING MATERIALS
+
+### Whisper Learning Materials
+
+**Key Improvements Needed:**
+- **Clarity and Specificity:** Ensure prompts are clear, specific, and actionable. Avoid ambiguity in requirements and expectations.
+- **Structured Outputs:** Define the structure and format of outputs explicitly, including headings, sections, and deliverables.
+- **Audience Awareness:** Tailor prompts to the intended audience (e.g., technical vs. non-technical), ensuring language and complexity are appropriate.
+- **Validation and Error Handling:** Emphasize the importance of data validation, error handling, and logging in all technical specifications and code.
+
+**Resources:**
+- [A Practical Guide to Writing Technical Specs](https://stackoverflow.blog/2020/04/06/a-practical-guide-to-writing-technical-specs/)
+- [Data Science Documentation Best Practices](https://www.datascience-pm.com/documentation-best-practices/)
+- [Writing Data Requirements: Best Practices](https://qat.com/guide-writing-data-requirements/)
+
+---
+
+### Spec Learning Materials
+
+**Key Improvements Needed:**
+- **Comprehensive Data Validation:** Specify detailed data validation steps, including handling missing values, duplicates, and outliers.
+- **Statistical Rigor:** Clearly define statistical tests, interpretation guidelines, and visualization requirements.
+- **Reproducibility:** Ensure all methods and random processes are reproducible (e.g., using random seeds).
+- **Edge Cases:** Address potential edge cases and specify how they should be handled.
+
+**Resources:**
+- [Data Validation in Python](https://www.projectpro.io/recipes/perform-data-validation-python-by-processing-only-matched-columns)
+- [Reproducible Data Science with Python](https://valdanchev.github.io/reproducible-data-science-python/intro.html)
+- [Best Practices for Data Validation and Error Handling](https://www.linkedin.com/advice/1/what-some-best-practices-documenting-your-data-validation)
+
+---
+
+### Dev Learning Materials
+
+**Key Improvements Needed:**
+- **Robust Error Handling:** Implement comprehensive error handling for file I/O, data processing, and visualization.
+- **Code Comments and Documentation:** Add inline comments and docstrings to explain complex logic and ensure maintainability.
+- **Logging:** Use logging to track progress, errors, and warnings during execution.
+- **Reproducibility:** Use virtual environments, requirement files, and version control to ensure reproducibility.
+
+**Resources:**
+- [Data Validation and Exception Handling in Python](https://study.com/academy/lesson/data-validation-exception-handling-in-python.html)
+- [Reproducible Research Practices](https://calmops.com/programming/python/reproducible-research-practices/)
+- [Building Reproducible Research Pipelines in Python](https://www.statology.org/building-reproducible-research-pipelines-in-python-from-data-collection-to-reporting/)
+
+---
+
+### Quant Learning Materials
+
+**Key Improvements Needed:**
+- **Non-Technical Language:** Write reports in plain language, avoiding jargon and explaining technical terms.
+- **Actionable Insights:** Focus on providing clear, prioritized recommendations based on data.
+- **Visualization Descriptions:** Describe visualizations in detail, explaining axes, trends, and key takeaways.
+- **Data Limitations:** Clearly state any data limitations and their impact on findings.
+
+**Resources:**
+- [Writing Data Science Reports for Non-Technical Audiences](https://www.unifyingdatascience.org/html/writing_to_stakeholders.html)
+- [Best Practices for Creating Reports for Non-Technical Users](https://www.boldreports.com/resources/learn/10-best-practices-for-creating-reports/)
+- [How to Write a Comprehensive Data Analysis Report](https://www.linkedin.com/advice/3/how-do-you-create-comprehensive-data-analysis-report)
+
+---
+
+## UPDATED PROMPTS
+
+### Updated Whisper Prompt
+
 **Role:** You are **Whisper**, a prompt engineer. Your task is to design clear, specific, and actionable prompts for **Spec** (data analysis architect) and **Quant** (data storyteller). Your prompts must ensure high-quality, reproducible, and technically rigorous outputs.
 
 **Inputs:**
@@ -36,9 +106,7 @@
 
 ---
 
-## Spec Agent Prompt Suggestions
-
-When designing the prompt for Spec, consider these suggestions:
+### Spec Prompt Suggestions
 
 **Improvements:**
 - **Data Validation:** Require Dev to validate data quality (e.g., check for missing values, duplicates, outliers) before analysis.
@@ -63,9 +131,7 @@ When designing the prompt for Spec, consider these suggestions:
 
 ---
 
-## Dev Agent Prompt Suggestions
-
-When constructing prompts for Dev, consider these suggestions:
+### Dev Prompt Suggestions
 
 **Improvements:**
 - **Error Handling:** Require Dev to include robust error handling for file I/O, data processing, and visualization.
@@ -91,9 +157,7 @@ When constructing prompts for Dev, consider these suggestions:
 
 ---
 
-## Quant Agent Prompt Suggestions
-
-When designing the prompt for Quant, consider these suggestions:
+### Quant Prompt Suggestions
 
 **Improvements:**
 - **Data Limitations:** Require Quant to state any data limitations and their impact on findings.
@@ -119,3 +183,4 @@ When designing the prompt for Quant, consider these suggestions:
 ---
 
 These updates and resources will help each agent produce higher-quality, more reliable, and more actionable outputs.
+

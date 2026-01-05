@@ -22,6 +22,61 @@ SAMPLE_SIZE = 500  # rows
 # Random seed for reproducible sampling
 RANDOM_SEED = 42
 
+# Learning materials directory
+LEARNING_MATERIALS_DIR = "outputs/agent_learning_materials"
+
+# ============================================================================
+# HELPER FUNCTIONS
+# ============================================================================
+
+def load_learning_materials(agent_name):
+    """Load learning materials for a specific agent if they exist."""
+    materials_path = os.path.join(LEARNING_MATERIALS_DIR, f"{agent_name}_learning.md")
+    if os.path.exists(materials_path):
+        try:
+            with open(materials_path, "r") as f:
+                materials = f.read()
+            print(f"✓ Loaded learning materials for {agent_name}")
+            return materials
+        except Exception as e:
+            print(f"⚠ Warning: Could not load learning materials for {agent_name}: {e}")
+            return None
+    return None
+
+def format_learning_materials(materials):
+    """Format learning materials for inclusion in a prompt."""
+    if not materials:
+        return ""
+    return f"\n\n## Learning Materials from Previous Runs\n\n{materials}\n"
+
+def save_learning_materials(agent_name, new_materials):
+    """Save or append learning materials for an agent."""
+    os.makedirs(LEARNING_MATERIALS_DIR, exist_ok=True)
+    materials_path = os.path.join(LEARNING_MATERIALS_DIR, f"{agent_name}_learning.md")
+
+    # Load existing materials if they exist
+    existing_materials = ""
+    if os.path.exists(materials_path):
+        try:
+            with open(materials_path, "r") as f:
+                existing_materials = f.read()
+        except Exception as e:
+            print(f"⚠ Warning: Could not load existing materials for {agent_name}: {e}")
+
+    # Append new materials
+    if existing_materials:
+        combined_materials = f"{existing_materials}\n\n---\n\n{new_materials}"
+    else:
+        combined_materials = new_materials
+
+    # Save combined materials
+    try:
+        with open(materials_path, "w") as f:
+            f.write(combined_materials)
+        print(f"✓ Saved learning materials for {agent_name}")
+    except Exception as e:
+        print(f"⚠ Warning: Could not save learning materials for {agent_name}: {e}")
+
 # Validate environment variables
 api_key = os.getenv("MISTRAL_API_KEY")
 file_path = os.getenv("FILE_PATH")
@@ -156,7 +211,7 @@ os.makedirs("outputs", exist_ok=True)
 
 # Initialize agents
 try:
-    whisper, quant, dev, spec = initialize_agents()
+    whisper, quant, dev, spec, critique = initialize_agents()
     print("✓ Initialized all agents\n")
 except Exception as e:
     raise Exception(f"Error initializing agents: {e}")
@@ -168,10 +223,26 @@ print("=" * 80)
 print("CALLING WHISPER AGENT")
 print("=" * 80)
 
+# Load learning materials for Whisper and the agents she designs prompts for
+whisper_learning = load_learning_materials("whisper")
+spec_learning = load_learning_materials("spec")
+quant_learning = load_learning_materials("quant")
+
+# Construct Whisper's prompt with learning materials
+whisper_prompt = whisper_message
+whisper_prompt += format_learning_materials(whisper_learning)
+
+# Include learning materials for Spec and Quant so Whisper can incorporate them
+if spec_learning:
+    whisper_prompt += f"\n\n## Learning Materials for Spec Agent\n\nWhen designing the prompt for Spec, please incorporate these learning materials:\n\n{spec_learning}\n"
+
+if quant_learning:
+    whisper_prompt += f"\n\n## Learning Materials for Quant Agent\n\nWhen designing the prompt for Quant, please incorporate these learning materials:\n\n{quant_learning}\n"
+
 try:
     whisper_response = client.beta.conversations.start(
         agent_id=whisper.id,
-        inputs=whisper_message,
+        inputs=whisper_prompt,
     )
     print(f"✓ Whisper responded with {len(whisper_response.outputs)} output(s)")
 except Exception as e:
@@ -261,6 +332,9 @@ print("=" * 80)
 print("CALLING DEV AGENT")
 print("=" * 80)
 
+# Load learning materials for Dev
+dev_learning = load_learning_materials("dev")
+
 try:
     # Build Dev prompt based on data mode
     if data_info['mode'] == 'summary':
@@ -323,6 +397,9 @@ df = pd.read_csv(StringIO(csv_data))
 Execute the analysis code and print all key results, metrics, and findings to stdout so they can be passed to the next agent.
 """
 
+    # Append learning materials to Dev prompt
+    dev_prompt += format_learning_materials(dev_learning)
+
     dev_response = client.beta.conversations.start(
         agent_id=dev.id,
         inputs=dev_prompt,
@@ -382,7 +459,9 @@ try:
             f.write("## Agent Messages\n\n")
             for idx, content in enumerate(dev_text_content, 1):
                 f.write(f"### Message {idx}\n\n")
-                f.write(content + "\n\n")
+                # Ensure content is a string (handle lists or other types)
+                content_str = str(content) if not isinstance(content, str) else content
+                f.write(content_str + "\n\n")
 
         if dev_code_executions:
             f.write("## Code Execution Results\n\n")
@@ -488,6 +567,268 @@ except Exception as e:
     print(f"⚠ Warning: Could not save quant_out.md: {e}\n")
 
 # ============================================================================
+# CRITIQUE AGENT - Quality Assurance & Learning
+# ============================================================================
+print("=" * 80)
+print("CALLING CRITIQUE AGENT")
+print("=" * 80)
+
+# Prepare comprehensive input for Critique agent
+critique_input = f"""
+You are being provided with the prompts and outputs from a 4-agent pipeline. Your task is to audit the quality of work and provide learning materials and updated prompts for each agent.
+
+## WHISPER AGENT
+
+### Prompt Provided to Whisper:
+{whisper_message}
+
+### Whisper's Output:
+{whisper_content}
+
+## SPEC AGENT
+
+### Prompt Provided to Spec (designed by Whisper):
+{spec_message}
+
+### Spec's Output:
+{specification_text}
+
+## DEV AGENT
+
+### Prompt Provided to Dev:
+{dev_prompt}
+
+### Dev's Output:
+
+#### Dev Messages:
+{chr(10).join(str(content) for content in dev_text_content) if dev_text_content else "No text messages"}
+
+#### Code Execution Results:
+"""
+
+if dev_code_executions:
+    for idx, exec_result in enumerate(dev_code_executions, 1):
+        critique_input += f"\nExecution {idx}:\n"
+        if exec_result['stdout']:
+            critique_input += f"stdout:\n{exec_result['stdout']}\n\n"
+        if exec_result['stderr']:
+            critique_input += f"stderr:\n{exec_result['stderr']}\n\n"
+        if exec_result['result']:
+            critique_input += f"result: {exec_result['result']}\n\n"
+else:
+    critique_input += "No code execution results\n"
+
+critique_input += f"""
+
+## QUANT AGENT
+
+### Prompt Provided to Quant (designed by Whisper):
+{quant_message}
+
+### Quant's Output:
+{quant_report}
+
+---
+
+Please provide your assessment in the following format:
+
+## LEARNING MATERIALS
+
+### Whisper Learning Materials
+[Your learning materials for Whisper agent]
+
+### Spec Learning Materials
+[Your learning materials for Spec agent]
+
+### Dev Learning Materials
+[Your learning materials for Dev agent]
+
+### Quant Learning Materials
+[Your learning materials for Quant agent]
+
+## UPDATED PROMPTS
+
+### Updated Whisper Prompt
+[The complete updated prompt for Whisper, which will overwrite prompts/whisper_message.txt]
+
+### Spec Prompt Suggestions
+[Suggestions for improving Spec's prompt - these will be provided to Whisper when she designs Spec's prompt]
+
+### Dev Prompt Suggestions
+[Suggestions for improving Dev's prompt - these will be included in Dev's prompt construction]
+
+### Quant Prompt Suggestions
+[Suggestions for improving Quant's prompt - these will be provided to Whisper when she designs Quant's prompt]
+"""
+
+# Call Critique agent
+try:
+    critique_response = client.beta.conversations.start(
+        agent_id=critique.id,
+        inputs=critique_input
+    )
+    print(f"✓ Critique responded with {len(critique_response.outputs)} output(s)")
+except Exception as e:
+    print(f"⚠ Warning: Error calling Critique agent: {e}")
+    critique_response = None
+
+# Parse Critique response if successful
+if critique_response and critique_response.outputs:
+    critique_content = ""
+    for output in critique_response.outputs:
+        if hasattr(output, 'content') and output.content:
+            # Ensure content is a string (handle lists or other types)
+            content_str = str(output.content) if not isinstance(output.content, str) else output.content
+            critique_content += content_str + "\n\n"
+
+    if critique_content:
+        # Save full critique output
+        try:
+            with open("outputs/critique_out.md", "w") as f:
+                f.write(critique_content)
+            print("✓ Saved critique_out.md")
+        except Exception as e:
+            print(f"⚠ Warning: Could not save critique_out.md: {e}")
+
+        # Parse and save learning materials
+        print("\nExtracting learning materials...")
+
+        # Extract learning materials for each agent
+        # Try different heading formats (###, ##, **)
+        learning_patterns = [
+            ('whisper', ['## **Whisper Learning Materials**', '### Whisper Learning Materials'], ['## **Spec Learning Materials**', '### Spec Learning Materials']),
+            ('spec', ['## **Spec Learning Materials**', '### Spec Learning Materials'], ['## **Dev Learning Materials**', '### Dev Learning Materials']),
+            ('dev', ['## **Dev Learning Materials**', '### Dev Learning Materials'], ['## **Quant Learning Materials**', '### Quant Learning Materials']),
+            ('quant', ['## **Quant Learning Materials**', '### Quant Learning Materials'], ['## **UPDATED PROMPTS**', '## UPDATED PROMPTS', '### **UPDATED PROMPTS**'])
+        ]
+
+        for agent_name, start_markers, end_markers in learning_patterns:
+            try:
+                # Find which marker exists
+                start_marker = None
+                start_idx = -1
+                for marker in start_markers:
+                    idx = critique_content.find(marker)
+                    if idx != -1:
+                        start_marker = marker
+                        start_idx = idx + len(marker)
+                        break
+
+                end_marker = None
+                end_idx = -1
+                for marker in end_markers:
+                    idx = critique_content.find(marker)
+                    if idx != -1 and (start_idx == -1 or idx > start_idx):
+                        end_marker = marker
+                        end_idx = idx
+                        break
+
+                if start_idx != -1 and end_idx != -1:
+                    learning_content = critique_content[start_idx:end_idx].strip()
+                    if learning_content:
+                        save_learning_materials(agent_name, learning_content)
+                else:
+                    print(f"⚠ Warning: Could not find learning materials section for {agent_name}")
+            except Exception as e:
+                print(f"⚠ Warning: Error extracting learning materials for {agent_name}: {e}")
+
+        # Parse and save updated prompts
+        print("\nExtracting updated prompts...")
+
+        # Extract Whisper's updated prompt
+        try:
+            # Try different formats
+            whisper_prompt_markers = ['### **Updated Whisper Prompt**', '### Updated Whisper Prompt']
+            spec_suggestions_markers = ['### **Spec Prompt Suggestions**', '### Spec Prompt Suggestions']
+            dev_suggestions_markers = ['### **Dev Prompt Suggestions**', '### Dev Prompt Suggestions']
+            quant_suggestions_markers = ['### **Quant Prompt Suggestions**', '### Quant Prompt Suggestions']
+
+            # Find Whisper prompt
+            whisper_start_idx = -1
+            whisper_marker = None
+            for marker in whisper_prompt_markers:
+                idx = critique_content.find(marker)
+                if idx != -1:
+                    whisper_marker = marker
+                    whisper_start_idx = idx + len(marker)
+                    break
+
+            # Find Spec suggestions (marks end of Whisper prompt)
+            spec_start_idx = -1
+            spec_marker = None
+            for marker in spec_suggestions_markers:
+                idx = critique_content.find(marker)
+                if idx != -1 and (whisper_start_idx == -1 or idx > whisper_start_idx):
+                    spec_marker = marker
+                    spec_start_idx = idx
+                    break
+
+            if whisper_start_idx != -1 and spec_start_idx != -1:
+                updated_whisper_prompt = critique_content[whisper_start_idx:spec_start_idx].strip()
+
+                if updated_whisper_prompt:
+                    # Overwrite whisper_message.txt with new prompt
+                    with open("prompts/whisper_message.txt", "w") as f:
+                        f.write(updated_whisper_prompt)
+                    print("✓ Updated prompts/whisper_message.txt with new Whisper prompt")
+
+                    # Append Spec, Dev, Quant prompt suggestions to the whisper prompt
+                    prompt_suggestions = []
+
+                    # Extract Spec suggestions
+                    dev_start_idx = -1
+                    for marker in dev_suggestions_markers:
+                        idx = critique_content.find(marker)
+                        if idx != -1 and idx > spec_start_idx:
+                            dev_start_idx = idx
+                            break
+
+                    if spec_start_idx != -1 and dev_start_idx != -1:
+                        spec_suggestions = critique_content[spec_start_idx + len(spec_marker):dev_start_idx].strip()
+                        if spec_suggestions:
+                            prompt_suggestions.append(f"\n\n## Spec Agent Prompt Suggestions\n\nWhen designing the prompt for Spec, consider these suggestions:\n\n{spec_suggestions}")
+
+                    # Extract Dev suggestions
+                    quant_start_idx = -1
+                    quant_marker_found = None
+                    for marker in quant_suggestions_markers:
+                        idx = critique_content.find(marker)
+                        if idx != -1 and (dev_start_idx == -1 or idx > dev_start_idx):
+                            quant_start_idx = idx
+                            quant_marker_found = marker
+                            break
+
+                    if dev_start_idx != -1 and quant_start_idx != -1:
+                        dev_suggestions = critique_content[dev_start_idx + len([m for m in dev_suggestions_markers if m in critique_content][0]):quant_start_idx].strip()
+                        if dev_suggestions:
+                            prompt_suggestions.append(f"\n\n## Dev Agent Prompt Suggestions\n\nWhen constructing prompts for Dev, consider these suggestions:\n\n{dev_suggestions}")
+
+                    # Extract Quant suggestions
+                    if quant_start_idx != -1:
+                        quant_suggestions = critique_content[quant_start_idx + len(quant_marker_found):].strip()
+                        if quant_suggestions:
+                            prompt_suggestions.append(f"\n\n## Quant Agent Prompt Suggestions\n\nWhen designing the prompt for Quant, consider these suggestions:\n\n{quant_suggestions}")
+
+                    # Append all suggestions to whisper_message.txt
+                    if prompt_suggestions:
+                        with open("prompts/whisper_message.txt", "a") as f:
+                            for suggestion in prompt_suggestions:
+                                f.write(suggestion)
+                        print("✓ Appended Spec, Dev, and Quant prompt suggestions to whisper_message.txt")
+                else:
+                    print("⚠ Warning: Updated Whisper prompt was empty")
+            else:
+                print("⚠ Warning: Could not find updated prompt sections in Critique output")
+        except Exception as e:
+            print(f"⚠ Warning: Error extracting and saving updated prompts: {e}")
+
+        print("✓ Critique processing complete\n")
+    else:
+        print("⚠ Warning: Critique returned empty content\n")
+else:
+    print("⚠ Warning: Critique agent did not return valid outputs\n")
+
+# ============================================================================
 # PIPELINE COMPLETE
 # ============================================================================
 print("=" * 80)
@@ -498,4 +839,6 @@ print("  - outputs/whisper_out.md")
 print("  - outputs/specification.md")
 print("  - outputs/dev.md")
 print("  - outputs/quant_out.md")
+print("  - outputs/critique_out.md")
+print("  - outputs/agent_learning_materials/*.md")
 print("\nAll agents executed successfully!")

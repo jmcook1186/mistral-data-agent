@@ -1,157 +1,169 @@
-### **Technical Specification for Enhanced Analysis of Asynchronous Conversation Assemblies**
+### **Technical Specification: Asynchronous Email Assembly Analysis**
+
+**Author:** Spec
+**Version:** 1.0
+**Date:** 2026-01-05
+**Target Audience:** Dev (Mistral AI Agent)
 
 ---
 
-## **1. Code Review Findings**
-
-### **Strengths**
-- **Embedding Generation**: Uses Mistral’s embeddings for semantic representation of positions.
-- **Dimensionality Reduction**: Applies t-SNE for visualization-friendly 3D embeddings.
-- **Clustering**: Dynamically determines optimal cluster count using silhouette scores.
-- **Topic Modeling**: Uses LDA for topic extraction.
-- **Sentiment Analysis**: Basic sentiment polarity analysis via TextBlob.
-
-### **Gaps & Opportunities**
-1. **Temporal Analysis**:
-   - No analysis of how positions, topics, or sentiment evolve across rounds.
-   - No tracking of participant influence or response patterns over time.
-
-2. **Participant Dynamics**:
-   - No identification of key participants (e.g., bridges, outliers, or influencers).
-   - No network analysis (e.g., reply graphs, interaction frequency).
-
-3. **Topic & Cluster Stability**:
-   - No comparison of topic/cluster consistency between rounds.
-   - No statistical testing for consensus convergence.
-
-4. **Visualization**:
-   - Static 3D plots; no interactive or round-over-round visualizations.
-   - No heatmaps or network graphs for participant dynamics.
-
-5. **Robustness**:
-   - Assumes all rounds have equal participation; no handling for missing data or uneven participation.
-   - No validation of cluster/topic quality (e.g., coherence scores).
+## **1. Overview**
+This spec defines the implementation for analyzing asynchronous email-based "assemblies" (structured conversations with fixed participants and rounds). The goal is to quantify **thematic convergence**, **sentiment evolution**, and **participant dynamics** using Python, Pandas, Scikit-learn, Matplotlib, and Seaborn.
 
 ---
 
-## **2. Technical Specification**
+## **2. Data Schema & Validation**
 
-### **Objective**
-Enhance the analysis pipeline to:
-- Quantify temporal evolution of topics, sentiment, and clusters.
-- Identify key participants and interaction patterns.
-- Visualize round-over-round dynamics and consensus metrics.
+### **Input Data**
+- CSV files with columns:
+  - `round_id` (int)
+  - `participant_id` (str)
+  - `position_text` (str)
+  - `sentiment_score` (float, range: -1 to 1)
+  - `theme` (str)
+  - `timestamp` (datetime)
 
----
+### **Validation & Preprocessing**
+- **Missing Values:**
+  - Log missing values by column.
+  - Impute missing `sentiment_score` with the median of the participant’s other scores.
+  - Drop rows missing `position_text` or `theme`.
+- **Outliers:**
+  - Flag `sentiment_score` outside [-1, 1].
+  - Log participants with >20% missing data.
+- **Standardization:**
+  - Convert `timestamp` to UTC.
+  - Ensure `round_id` is sequential and starts at 1.
 
-### **Inputs**
-- **Data**:
-  - CSV files with columns: `round_id`, `participant_id`, `position_text`, `timestamp`, `sentiment_score` (if precomputed).
-  - Preprocessed embeddings (from `script.py`).
-- **Parameters**:
-  - `min_participants_per_round`: Minimum number of participants required for round-level analysis (default: 3).
-  - `min_cluster_size`: Minimum size for a cluster to be considered stable (default: 5).
-  - `topic_coherence_threshold`: Minimum coherence score for a topic to be retained (default: 0.4).
-
----
-
-### **Methods**
-
-#### **A. Temporal Analysis**
-1. **Round-Over-Round Topic Evolution**:
-   - For each round, extract topics using LDA (as in `script.py`).
-   - Compare topic distributions between rounds using **Jensen-Shannon divergence**.
-   - Track topic prevalence and sentiment per round.
-
-2. **Cluster Stability**:
-   - For each round, cluster positions using K-means (as in `script.py`).
-   - Compute **Adjusted Rand Index (ARI)** to measure cluster consistency between rounds.
-
-3. **Sentiment Trends**:
-   - Plot mean sentiment per round.
-   - Identify rounds with significant sentiment shifts (using t-tests).
-
-#### **B. Participant Dynamics**
-1. **Influence Network**:
-   - Construct a directed graph where edges represent replies or semantic similarity between positions.
-   - Use `networkx` to identify central participants (e.g., high betweenness centrality).
-
-2. **Response Patterns**:
-   - Compute response latency (time between rounds for each participant).
-   - Flag participants with consistently high/low latency.
-
-#### **C. Consensus Metrics**
-1. **Cluster Adoption**:
-   - Track how many participants contribute to each cluster per round.
-   - Identify clusters that grow/shrink significantly.
-
-2. **Semantic Similarity**:
-   - Use cosine similarity on embeddings to measure intra-cluster cohesion and inter-cluster separation.
+**Output:**
+- Log file (`data_issues.txt`) with summary of issues and handling.
+- Cleaned DataFrame for analysis.
 
 ---
 
-### **Outputs**
-- **Files**:
-  - `topic_evolution.json`: Topic distributions and divergence scores per round.
-  - `participant_influence.csv`: Centrality metrics and response patterns.
-  - `consensus_metrics.csv`: Cluster stability, ARI, and adoption rates.
-- **Visualizations**:
-  - **Heatmap**: Round-over-round topic prevalence.
-  - **Network Graph**: Participant influence network (using `networkx` and `matplotlib`).
-  - **Line Plot**: Mean sentiment per round with significance markers.
-  - **Bar Chart**: Cluster adoption rates per round.
+## **3. Core Analyses**
 
----
+### **A. Thematic Convergence**
+- **Jaccard Similarity:**
+  - For each pair of rounds, compute Jaccard similarity of themes.
+  - Output: Heatmap (Seaborn) of similarity between rounds.
+- **Theme Clustering:**
+  - Vectorize themes using `TfidfVectorizer`.
+  - Cluster using K-means, with *k* determined by the elbow method.
+  - Add `theme_cluster` column to DataFrame.
 
-### **Validation**
-- **Topic Quality**: Retain only topics with coherence score > `topic_coherence_threshold`.
-- **Participation Check**: Skip rounds with < `min_participants_per_round`.
-- **Cluster Stability**: Flag rounds with ARI < 0.3 as unstable.
-
----
-
-## **3. Visualization Requirements**
-- Use `matplotlib` and `seaborn` for all static plots.
-- For network graphs, use `networkx` with spring layout.
-- Ensure colorblind-friendly palettes and clear axis labels.
-
----
-
-## **4. Pseudocode Snippets**
-
-### **Round-Over-Round Topic Comparison**
+**Code Hint:**
 ```python
-from scipy.spatial.distance import jensenshannon
-from sklearn.metrics import adjusted_rand_score
-
-# Assume `topics_per_round` is a dict: {round_id: [topic_distribution]}
-round_ids = sorted(topics_per_round.keys())
-for i in range(len(round_ids)-1):
-    r1, r2 = round_ids[i], round_ids[i+1]
-    js_div = jensenshannon(topics_per_round[r1], topics_per_round[r2])
-    print(f"JS Divergence between {r1} and {r2}: {js_div:.3f}")
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.cluster import KMeans
+vectorizer = TfidfVectorizer()
+X = vectorizer.fit_transform(df["theme"])
+kmeans = KMeans(n_clusters=3, random_state=42).fit(X)
 ```
 
-### **Influence Network**
+### **B. Sentiment Evolution**
+- **Trend Analysis:**
+  - Line plot (Seaborn) of `sentiment_score` by `round_id`, grouped by `participant_id` and `theme`.
+  - Add 95% confidence intervals.
+- **Statistical Testing:**
+  - Kruskal-Wallis test for significant changes in sentiment across rounds.
+
+**Code Hint:**
+```python
+import seaborn as sns
+sns.lineplot(data=df, x="round_id", y="sentiment_score", hue="participant_id", ci=95)
+```
+
+### **C. Participant Dynamics**
+- **Network Graph:**
+  - Construct a weighted graph (NetworkX) where nodes are participants and edges are weighted by theme overlap (Jaccard similarity).
+  - Visualize with `matplotlib`.
+- **Outlier Detection:**
+  - Flag participants with consistently low thematic alignment (e.g., Jaccard < 0.2 for all rounds).
+
+**Code Hint:**
 ```python
 import networkx as nx
-
-G = nx.DiGraph()
-# Add edges based on replies or semantic similarity
-centrality = nx.betweenness_centrality(G)
+G = nx.Graph()
+# Add nodes and edges based on theme overlap
+nx.draw(G, with_labels=True)
 ```
 
 ---
 
-## **5. Dependencies**
-- Add to `requirements.txt`:
-  ```
-  networkx>=3.0
-  scipy>=1.10.0
-  ```
+## **4. Visualizations**
+
+- **Heatmap:** Jaccard similarity between rounds (Seaborn).
+- **Line Plot:** Sentiment trends (Seaborn, with confidence intervals).
+- **Network Graph:** Participant interactions (NetworkX + Matplotlib).
+- **Save all visualizations as PNG (300 DPI, labeled axes).**
 
 ---
-**Next Steps for Dev**:
-- Implement the temporal and participant analysis modules.
-- Generate the specified visualizations and output files.
-- Validate results against the specified thresholds.
+
+## **5. Edge Cases & Constraints**
+
+- **Sparse Data:**
+  - Skip rounds with <3 participants.
+  - Log skipped rounds.
+- **Missing Data:**
+  - Exclude participants with >20% missing data from network analysis.
+- **Constraints:**
+  - Use only Python (Pandas, Scikit-learn, Matplotlib/Seaborn, NetworkX).
+  - No external APIs or proprietary tools.
+
+---
+
+## **6. Outputs**
+
+- **CSV:** Processed data with added metrics (`theme_cluster`, `sentiment_change`).
+- **PNG:** All visualizations.
+- **TXT:** Log of data issues and handling decisions.
+
+---
+
+## **7. Implementation Notes for Dev**
+
+- **Modularity:**
+  - Implement each analysis (thematic, sentiment, network) as a separate function.
+  - Use `pandas` for data manipulation, `scikit-learn` for clustering/testing, and `seaborn/matplotlib` for visualization.
+- **Error Handling:**
+  - Log errors and continue with available data.
+- **Performance:**
+  - Vectorize operations where possible.
+  - Use `n_jobs=-1` for parallelizable Scikit-learn functions.
+
+---
+
+## **8. Example Workflow**
+
+```python
+import pandas as pd
+from sklearn.metrics import jaccard_score
+import seaborn as sns
+import networkx as nx
+
+def analyze_assembly(df):
+    # Preprocess
+    df = preprocess_data(df)
+
+    # Thematic convergence
+    jaccard_matrix = compute_jaccard(df)
+    plot_jaccard_heatmap(jaccard_matrix)
+
+    # Sentiment evolution
+    plot_sentiment_trends(df)
+
+    # Participant dynamics
+    G = build_network(df)
+    plot_network(G)
+
+    return df, jaccard_matrix, G
+```
+
+---
+
+**Next Steps for Dev:**
+- Implement data validation and preprocessing.
+- Build modular functions for each analysis.
+- Generate visualizations and outputs as specified.
+- Log all data issues and handling decisions.

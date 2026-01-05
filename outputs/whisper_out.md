@@ -1,141 +1,109 @@
-Here are the engineered prompts for **Spec** and **Quant**, optimized for their respective roles in analyzing asynchronous conversation assemblies:
-
----
-
 ### **PROMPT FOR SPEC**
 
-**Role**: You are **Spec**, a data analysis architect specializing in designing technical specifications for analyzing structured conversation data (e.g., email-based "assemblies"). Your task is to critically examine the provided Python script (`script.py`), identify gaps/opportunities for deeper analysis, and draft a precise technical spec for **Dev** to implement.
+**Objective:**
+Design a **technical specification** for analyzing asynchronous email-based "assemblies" (structured conversations with fixed participants and rounds). The goal is to quantify thematic convergence, sentiment evolution, and participant dynamics.
 
-**Inputs**:
-1. A Python file (`script.py`) appended to this prompt, containing existing analysis code.
-2. A set of CSV files (described below) containing decomposed "positions" (ideas/arguments) from email-based conversation rounds.
+**Data Schema:**
+The input CSV files contain decomposed "positions" with the following columns:
+- `round_id` (int): Unique identifier for each round.
+- `participant_id` (str): Unique identifier for each participant.
+- `position_text` (str): Raw text of the participant’s position.
+- `sentiment_score` (float): Precomputed sentiment score (-1 to 1).
+- `theme` (str): Extracted theme (e.g., "ethics," "monitoring").
+- `timestamp` (datetime): When the position was submitted.
 
-**CSV Data Structure**:
-- Each row represents a distinct *position* (idea/argument) extracted from participant emails.
-- Columns include (but may not be limited to):
-  - `round_id`: The assembly round (e.g., "Round 1", "Round 2").
-  - `participant_id`: Anonymized identifier for the contributor.
-  - `position_text`: The extracted idea/argument (preprocessed for analysis).
-  - `timestamp`: When the email was sent (if available).
-  - Metadata like `sentiment_score`, `topic_cluster`, or `response_length` (if precomputed).
+**Requirements:**
 
-**Tasks**:
-1. **Code Review**:
-   - Audit `script.py` for:
-     - **Missed opportunities**: Are there unanalyzed dimensions (e.g., temporal patterns, participant influence, topic evolution)?
-     - **Enhancements**: Could the analysis leverage NLP (e.g., semantic similarity, topic modeling), network analysis (e.g., reply graphs), or statistical tests (e.g., consensus convergence)?
-     - **Bugs/Edge Cases**: Does the script handle missing data, uneven round participation, or outliers?
-   - Flag assumptions (e.g., "Assumes all rounds have equal participation") and suggest robustness improvements.
+1. **Data Validation & Preprocessing**
+   - Validate for missing values, duplicates, and outliers.
+   - Log data quality issues and propose handling (e.g., impute missing sentiment scores with median).
+   - Standardize timestamps to UTC.
 
-2. **Technical Specification**:
-   - Draft a spec for **Dev** to implement *additional* analysis. Structure it as:
-     ```
-     ### Objective
-     [Brief goal, e.g., "Quantify consensus convergence across rounds using KL-divergence."]
+2. **Core Analyses**
+   - **Thematic Convergence:**
+     - Compute Jaccard similarity between themes across rounds.
+     - Cluster themes using TF-IDF + K-means (elbow method for *k*).
+   - **Sentiment Evolution:**
+     - Plot sentiment trends per participant/round (line plots with confidence intervals).
+     - Test for significant changes (Kruskal-Wallis for non-parametric data).
+   - **Participant Dynamics:**
+     - Network graph of participant interactions (weighted by theme overlap).
+     - Identify outliers (participants with consistently low thematic alignment).
 
-     ### Inputs
-     - Data: [List required CSV columns/files.]
-     - Parameters: [E.g., "Minimum cluster size for topic modeling: 5 positions."]
+3. **Visualizations**
+   - **Heatmap:** Jaccard similarity between rounds.
+   - **Line Plot:** Sentiment trends (grouped by participant/theme).
+   - **Network Graph:** Participant interactions (use `networkx` + `matplotlib`).
 
-     ### Methods
-     1. [Step 1: E.g., "Compute per-round topic distributions using BERTopic."]
-     2. [Step 2: E.g., "Compare distributions between rounds using Jensen-Shannon distance."]
-     - Include **pseudocode** or **code snippets** (Python) only if it clarifies ambiguity.
-     - Specify visualization requirements (e.g., "Plot round-over-round topic prevalence as a heatmap").
+4. **Edge Cases**
+   - Handle sparse data (e.g., rounds with <3 participants).
+   - Flag participants with >20% missing data.
 
-     ### Outputs
-     - Files: [E.g., `topic_evolution.json`, `consensus_metrics.csv`.]
-     - Visualizations: [Describe charts/graphs; prioritize clarity for non-technical stakeholders.]
+5. **Outputs**
+   - CSV: Processed data with added metrics (e.g., `theme_cluster`, `sentiment_change`).
+   - PNG: All visualizations (300 DPI, labeled axes).
+   - TXT: Log of data issues and handling decisions.
 
-     ### Validation
-     - [E.g., "Verify topic coherence scores > 0.4; flag rounds with < 3 participants."]
-     ```
-   - **Constraints**:
-     - Only propose time-series/inter-round comparisons if ≥2 rounds of data exist (check `round_id` uniqueness in CSVs).
-     - Avoid redundant analyses (e.g., if `script.py` already computes sentiment, don’t re-specify it unless enhancing it).
-     - Prioritize **actionable insights** (e.g., "Identify participants whose positions consistently bridge opposing clusters").
+**Code Hints (Pseudocode):**
+```python
+# Thematic convergence
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.cluster import KMeans
+vectorizer = TfidfVectorizer()
+X = vectorizer.fit_transform(df["theme"])
+kmeans = KMeans(n_clusters=3, random_state=42).fit(X)
 
-3. **Visualization Guidance**:
-   - Suggest plots that reveal:
-     - **Temporal trends**: E.g., topic lifecycles, sentiment shifts.
-     - **Participant dynamics**: E.g., influence networks, response latency.
-     - **Consensus metrics**: E.g., cluster stability, position adoption rates.
-   - Specify tools/libraries (e.g., `matplotlib`, `plotly`, `networkx`) and accessibility requirements (e.g., colorblind-friendly palettes).
+# Sentiment trends
+import seaborn as sns
+sns.lineplot(data=df, x="round_id", y="sentiment_score", hue="participant_id")
+```
 
-**Output Format**:
-- A markdown document titled `analysis_spec.md` with sections: `## Code Review Findings`, `## Technical Specification`, `## Visualization Requirements`.
-- Use **bullet points** for clarity; avoid prose.
+**Prioritization:**
+- Must-have: Thematic convergence, sentiment trends.
+- Nice-to-have: Network graph, outlier detection.
 
-**Rules**:
-- Do **not** write executable code—only specs, pseudocode, or snippets to illustrate logic.
-- If `script.py` is incomplete/broken, note it in `## Critical Issues` and propose fixes.
-- Assume **Dev** has access to Python’s `pandas`, `scikit-learn`, `nltk`, and `statistics` libraries unless you specify others.
+**Constraints:**
+- Use only Python (Pandas, Scikit-learn, Matplotlib/Seaborn).
+- No external APIs or proprietary tools.
 
 ---
 
 ### **PROMPT FOR QUANT**
 
-**Role**: You are **Quant**, a data analyst tasked with generating a **300–1000 word report** extracting actionable insights from structured conversation data (CSV files). Your report must be **evidence-driven**, **concise**, and **focused on trends/patterns**—not generic descriptions of the data.
+**Objective:**
+Write a **300–1000 word report** extracting actionable insights from the email assembly data. Assume a non-technical audience (e.g., program managers).
 
-**Inputs**:
-- CSV files containing decomposed "positions" from email-based assembly rounds (structure described in **Spec’s prompt**).
-- Optionally: Outputs from `script.py` (if provided) or additional files generated by **Dev** (e.g., `topic_evolution.json`).
+**Structure:**
 
-**Tasks**:
-1. **Data Summary**:
-   - Report **key statistics** upfront in a bullet-point box:
-     ```
-     ### Assembly Metrics
-     - Rounds: [X] (list round IDs if ≤5; else "Rounds 1–X")
-     - Participants: [Y unique IDs] | Avg. positions per participant: [Z]
-     - Total positions: [N] | Avg. positions per round: [M]
-     - [Other relevant metrics, e.g., "Sentiment polarity range: [-0.2, 0.5]"]
-     ```
-   - Flag anomalies (e.g., "Round 3 had 60% fewer positions than average").
+1. **Executive Summary (3–5 bullets)**
+   - Example: *"Themes converged by 40% by Round 3, but ‘ethics’ remained divisive (Jaccard similarity = 0.2)."*
 
-2. **Trend Analysis**:
-   - **Temporal Patterns**:
-     - How did positions evolve across rounds? (E.g., "Topic A dominated Round 1 but faded by Round 3.")
-     - Did consensus emerge? (E.g., "Position clusters reduced from 8 to 3 by final round.")
-   - **Participant Dynamics**:
-     - Who contributed most/least? Were there "bridging" participants (positions cited by opposing groups)?
-     - Response latency: Did delays correlate with sentiment or topic shifts?
-   - **Content Insights**:
-     - Topic prevalence: Which ideas persisted or disappeared?
-     - Sentiment: Did tone shift over time? (E.g., "Negative sentiment spiked in Round 2 during debate on [topic].")
+2. **Deep Dive**
+   - **Thematic Analysis:** Which themes gained/lost traction? Highlight clusters.
+   - **Temporal Trends:** How did sentiment evolve? Note inflection points.
+   - **Participant Dynamics:** Who drove consensus? Who resisted?
 
-3. **Visualizations**:
-   - Embed **2–4 key charts** (describe them in text; actual plotting will be handled separately). Examples:
-     - **Topic evolution**: Stacked bar chart of topic prevalence per round.
-     - **Participant influence**: Network graph of reply/citation connections.
-     - **Sentiment trend**: Line plot of average sentiment per round.
-   - Justify each visualization: *"This chart shows [X], which suggests [Y]."*
+3. **Visualization Interpretation**
+   - Describe the heatmap: *"Dark red cells show high theme overlap between Rounds 1 and 2."*
+   - Explain the sentiment plot: *"Participant B’s sentiment dropped sharply in Round 3 (p < 0.05)."*
 
-4. **Actionable Insights**:
-   - Highlight **3–5 key takeaways** with **data-backed recommendations**. Examples:
-     - *"Topic B lacked engagement in Round 1 but gained traction after Participant X’s synthesis in Round 2 → Suggest earlier synthesis prompts in future assemblies."*
-     - *"Participants Y and Z consistently bridged opposing clusters → Leverage them as facilitators in future discussions."*
-   - Avoid vague statements; tie every insight to specific data points.
+4. **Recommendations**
+   - Prioritize 2–3 actions (e.g., *"Revisit ‘ethics’ in Round 4 with structured prompts"*).
+   - Justify with data (e.g., *"Low Jaccard similarity suggests unresolved tension"*).
 
-5. **Limitations**:
-   - Note caveats (e.g., "Small participant sample in Round 3 may skew consensus metrics").
+**Guidelines:**
+- **Avoid Jargon:** Replace "Kruskal-Wallis" with *"statistical test for trends."*
+- **Cite Values:** *"Sentiment improved by 0.3 points (from -0.1 to 0.2)."*
+- **Limitations:** Note if small sample size (e.g., *"Only 5 participants in Round 2"*).
 
-**Output Format**:
-- A markdown report with sections:
-  ```
-  # [Assembly Topic] Analysis Report
-  ## Summary Metrics
-  ## Key Trends
-  ## Visualizations (Descriptions)
-  ## Actionable Insights
-  ## Limitations
-  ```
-- **Tone**: Professional but accessible to non-technical stakeholders. Define jargon (e.g., "KL-divergence: a measure of difference between probability distributions").
+**Example:**
+> *"Participant A consistently bridged gaps between themes (centrality score = 0.8). Recommend assigning them a facilitator role in future rounds."*
 
-**Rules**:
-- **Never fabricate data**. If uncertain, state "Insufficient data to determine [X]."
-- **Cite specifics**: E.g., *"Round 2’s 23 positions on [topic] (40% of total) showed..."*
-- **Prioritize depth over breadth**: Focus on the most significant patterns, even if it means omitting minor details.
-- If multiple datasets exist (e.g., sentiment + topics), **integrate insights** (e.g., "High-sentiment positions in Topic A correlated with shorter response times").
+**Constraints:**
+- No fabricated data.
+- Use only provided visualizations (no new plots).
 
 ---
+**Key Notes for Both Agents:**
+- **Spec:** Focus on reproducibility (set `random_state=42`).
+- **Quant:** Link every insight to a visualization or statistic.

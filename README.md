@@ -6,12 +6,13 @@ A multi-agent data analysis pipeline that combines machine learning techniques w
 
 This project is part of a wider initiative around observing, tracking and mapping the underlying structure of deliberative conversations that happen asynchronously via email. The first use case for this has been running series of assemblies deisgned to bring groups of stakeholders to consensus over the content of technical specifications. As the conversations are happening by email, a separate email client captures the response bodies, anonymizes them and decomposes them into discrete "positions" or "ideas". These positions are collected in a csv file for each round of deliberation.
 
-This project processes text data from those 'position' CSV files and generates comprehensive analysis reports using a multi-agent system. It uses Mistral's embedding model to create vector representations of text, applies dimensionality reduction and clustering to identify patterns, performs topic modeling to extract themes, and analyzes sentiment. The results are then processed by four specialized AI agents working collaboratively:
+This project processes text data from those 'position' CSV files and generates comprehensive analysis reports using a multi-agent system. It uses Mistral's embedding model to create vector representations of text, applies dimensionality reduction and clustering to identify patterns, performs topic modeling to extract themes, and analyzes sentiment. The results are then processed by five specialized AI agents working collaboratively:
 
 - **Whisper**: Acts as a prompt engineer, designing optimized prompts for the other agents to ensure high-quality outputs and coordinating the team
 - **Spec**: A software architect agent that examines the existing analysis script, identifies opportunities for enhancement, and writes technical specifications for additional analyses
 - **Dev**: A software engineer agent that implements Spec's technical specifications, writing Python code for visualizations and additional analyses with proper testing and error handling
 - **Quant**: A data analyst agent that interprets the results from Dev's code execution, identifies key trends and insights, and generates detailed reports with actionable recommendations
+- **Critique**: A quality assurance agent that audits all agent outputs, provides learning materials for future runs, and updates prompts—creating a quasi-reinforcement learning loop for continuous improvement
 
 Eventually this will integrate with the email client and other agents such that the assembly can be orchestrated and monitored agentically.
 
@@ -19,7 +20,62 @@ Eventually this will integrate with the email client and other agents such that 
 
 ![Multi-Agent Data Analysis System Flow](system_flow_diagram.png)
 
-The diagram above illustrates the complete 4-agent architecture and information flow through the system.
+The diagram above illustrates the complete 5-agent architecture and information flow through the system.
+
+## Recent Updates
+
+### Version 2.1 - Critique Agent & Reinforcement Learning Loop (2026-01-05)
+
+**Quasi-Reinforcement Learning System:**
+- Added **Critique agent** as a 5th agent that audits all agent outputs and provides iterative improvements
+- Implements **round-wise refinement** where each pipeline execution improves agent performance for the next run
+- Learning materials accumulate over time, creating a continuous improvement loop similar to reinforcement learning
+- Each run benefits from lessons learned in all previous runs, with feedback acting as reward signals
+
+**Key Features:**
+- **Quality Assurance**: Critique agent examines prompts and outputs from Whisper, Spec, Dev, and Quant for accuracy, clarity, code quality, and actionable insights
+- **Incremental Learning**: Learning materials are appended (not overwritten), building a cumulative knowledge base across runs
+- **Adaptive Prompting**: Whisper's base prompt updated automatically; suggestions for Spec/Dev/Quant integrated into Whisper's prompt design process
+- **Persistent Memory**: Each agent receives its accumulated learning materials from all previous runs at execution time
+
+**How the Learning Loop Works:**
+1. **Execution**: Pipeline runs normally (Whisper → Spec → Dev → Quant)
+2. **Audit**: Critique agent receives all prompts and outputs for comprehensive analysis
+3. **Learning**: Critique generates learning materials for each agent, highlighting strengths and areas for improvement
+4. **Update**: Learning materials saved to `outputs/agent_learning_materials/{agent}_learning.md` (appended to existing content)
+5. **Refinement**: Updated Whisper prompt overwrites `prompts/whisper_message.txt`; suggestions for other agents included in Whisper's prompt file
+6. **Next Iteration**: Agents load their learning materials at runtime, incorporating feedback like RL reward signals
+7. **Continuous Improvement**: Process repeats with knowledge accumulating across runs
+
+**Benefits:**
+- Agents learn from mistakes and successes over time
+- Code quality, analysis depth, and insight clarity improve with each run
+- No manual intervention required—system self-improves automatically
+- Similar to reinforcement learning but using human-interpretable feedback instead of numerical rewards
+
+**See [CHANGELOG.md](CHANGELOG.md) for detailed technical changes.**
+
+### Version 2.0 - Large File Support (2025-12-23)
+
+**Three-Tier Data Handling System:**
+- Implemented automatic file size detection and adaptive data passing strategies
+- **Full Data Mode (< 50KB)**: Complete dataset embedded in agent prompts
+- **Random Sampling Mode (50KB - 500KB)**: Random sample of 500 rows (configurable) for better statistical representation
+- **Summary Statistics Mode (> 500KB)**: Comprehensive summary stats instead of raw data, including descriptive statistics, sample texts, and value counts
+
+**Key Improvements:**
+- Changed from sequential (`head()`) to random sampling for better data representation
+- Added configurable thresholds and sample sizes at the top of `main.py`
+- Comprehensive error handling and status reporting throughout the pipeline
+- Created detailed documentation for handling large files (see `LARGE_FILES.md`)
+
+**Bug Fixes:**
+- Fixed Dev agent tools configuration (separated `web_search` and `code_interpreter` into distinct tool objects)
+- Resolved API input size limit errors ("Failed to persist entries") by implementing intelligent data sampling
+- Fixed remote sandbox file access issue by updating Dev agent to print results to stdout
+- Added type safety for all agent response parsing with proper error handling
+
+**See [CHANGELOG.md](CHANGELOG.md) for detailed technical changes.**
 
 ## Features
 
@@ -154,23 +210,33 @@ This will execute only the baseline analysis (embeddings, clustering, topic mode
 ```
 mistral-data-agent/
 ├── consensus_metrics.py       # Core analysis pipeline (embeddings, clustering, topics, sentiment)
-├── main.py                    # Multi-agent orchestration script
+├── main.py                    # Multi-agent orchestration script with RL loop
+├── create_flow_diagram.py     # System architecture visualization generator
 ├── agents/
-│   └── agents.py              # Agent initialization and configuration
+│   └── agents.py              # Agent initialization (Whisper, Spec, Dev, Quant, Critique)
 ├── prompts/
-│   └── whisper_message.txt    # Initial instructions for Whisper agent
+│   ├── whisper_message.txt    # Whisper agent prompt (auto-updated by Critique)
+│   └── critique_message.txt   # Critique agent instructions
 ├── outputs/
 │   ├── whisper_out.md         # Whisper's designed prompts for Spec and Quant
 │   ├── specification.md       # Spec's technical specification for Dev
 │   ├── dev.md                 # Dev's code implementation and execution results
 │   ├── quant_out.md           # Quant's analysis report
+│   ├── critique_out.md        # Critique's audit and learning materials
+│   ├── agent_learning_materials/  # Accumulated learning across runs
+│   │   ├── whisper_learning.md    # Whisper's learning materials
+│   │   ├── spec_learning.md       # Spec's learning materials
+│   │   ├── dev_learning.md        # Dev's learning materials
+│   │   └── quant_learning.md      # Quant's learning materials
 │   └── summary_report_example.md  # Example output from earlier single-agent version
 ├── requirements.txt           # Python dependencies
 ├── environment.yml            # Conda environment specification
 ├── .env                       # Environment configuration (not in git)
 ├── .gitignore                 # Git ignore rules
+├── README.md                  # This file
+├── CHANGELOG.md               # Version history and detailed changes
 ├── LARGE_FILES.md             # Guide for handling large CSV files
-└── README.md                  # This file
+└── system_flow_diagram.png    # System architecture diagram
 ```
 
 ## Output
@@ -209,11 +275,28 @@ The multi-agent system (`main.py`) generates markdown files in the `outputs/` di
    - **Statistical Summary**: Distribution metrics, correlations, and statistical tests
    - **Actionable Recommendations**: Concrete next steps, areas for further investigation, and strategic insights
 
+5. **critique_out.md**: Quality assurance audit and learning materials including:
+   - **Learning Materials**: Detailed feedback for each agent (Whisper, Spec, Dev, Quant)
+     - Strengths to reinforce in future runs
+     - Areas for improvement with specific examples
+     - Learning resources (documentation, best practices, research papers)
+   - **Updated Prompts**: Refined prompts for all agents
+     - Complete revised Whisper prompt
+     - Suggestions for Spec, Dev, and Quant prompts (for Whisper to incorporate)
+
+6. **agent_learning_materials/** directory: Accumulated learning across all runs
+   - **whisper_learning.md**: Cumulative learning materials for Whisper agent
+   - **spec_learning.md**: Cumulative learning materials for Spec agent
+   - **dev_learning.md**: Cumulative learning materials for Dev agent
+   - **quant_learning.md**: Cumulative learning materials for Quant agent
+   - Each file grows with each run (new materials appended with `---` separators)
+   - Agents load these materials at runtime to incorporate past feedback
+
 See `outputs/summary_report_example.md` for a sample output from the earlier single-agent version.
 
 ## How It Works
 
-The system operates through a coordinated 4-agent pipeline:
+The system operates through a coordinated 5-agent pipeline with a reinforcement learning-style feedback loop:
 
 ### 1. Whisper (Prompt Engineering):
    - Reads the initial task description from `prompts/whisper_message.txt`
@@ -263,13 +346,146 @@ The system operates through a coordinated 4-agent pipeline:
      - Actionable recommendations and strategic insights
    - Provides context-aware analysis grounded in the actual data
 
+### 5. Critique (Quality Assurance & Continuous Learning):
+   - Receives all prompts and outputs from Whisper, Spec, Dev, and Quant
+   - Performs comprehensive audit examining:
+     - **Accuracy**: Verifies data interpretations, statistical claims, and technical correctness
+     - **Clarity**: Evaluates prompt quality, code readability, and report comprehensibility
+     - **Code Quality**: Assesses Dev's code for efficiency, documentation, error handling, and best practices
+     - **Actionability**: Judges whether insights and recommendations are specific and implementable
+   - Generates **learning materials** for each agent:
+     - Identifies strengths to reinforce
+     - Highlights areas for improvement with specific examples
+     - Provides learning resources (documentation, best practices, research papers)
+   - Produces **updated prompts**:
+     - Complete revised Whisper prompt (overwrites `prompts/whisper_message.txt`)
+     - Suggestions for Spec, Dev, and Quant prompts (appended to Whisper's prompt file for her to incorporate)
+   - Learning materials saved to `outputs/agent_learning_materials/` and **appended** to existing files
+   - Creates a **quasi-reinforcement learning loop**: Each run's feedback improves the next run's performance
+
 ### Agent Coordination
 
-The agents work in a sequential pipeline with clear handoffs:
-- **Whisper** orchestrates the workflow by designing clear, optimized prompts for Spec and Quant
+The agents work in a sequential pipeline with clear handoffs and continuous improvement:
+- **Whisper** orchestrates the workflow by designing clear, optimized prompts for Spec and Quant (incorporating learning materials from previous runs)
 - **Spec** bridges requirements and implementation by examining the existing analysis script and creating detailed technical specifications for enhancements
 - **Dev** executes all code (both the existing `consensus_metrics.py` script and Spec's enhancements) using code interpreter, generating comprehensive data outputs
 - **Quant** analyzes Dev's execution results to extract insights and provide strategic recommendations
+- **Critique** audits all agent work, generates learning materials, and updates prompts for the next iteration
 - All outputs use markdown format with specific delimiter patterns for programmatic processing
 
-**Key Difference**: Unlike traditional pipelines where analysis runs separately, Dev agent is the sole executor of all Python code, ensuring unified execution and result handling.
+**Key Differences**:
+1. Unlike traditional pipelines where analysis runs separately, Dev agent is the sole executor of all Python code, ensuring unified execution and result handling
+2. The Critique agent creates a **reinforcement learning-style feedback loop**: each pipeline run generates "reward signals" (learning materials) that guide agents to improve on subsequent runs, without requiring manual prompt engineering
+
+## Limitations
+
+### API and Infrastructure Constraints
+- **No File Upload Support**: Mistral SDK (v1.9.11) does not expose a native file upload API for code_interpreter. All data must be passed as strings embedded in prompts.
+- **API Input Size Limits**: Prompts are limited to ~1-2MB, restricting the amount of raw data that can be passed directly to agents.
+- **Remote Sandbox Execution**: Dev agent runs in a remote Mistral sandbox. Files saved during code execution are not accessible locally; results must be printed to stdout.
+- **Single Execution Context**: Each agent call is stateless. Multi-pass analysis requiring intermediate file storage is not directly supported.
+
+### Data Handling Trade-offs
+- **Sampling Limitations**: For files > 500KB, the system uses random sampling or summary statistics, which may miss rare patterns or edge cases in the data.
+- **Embedding Generation Overhead**: Large datasets require multiple API calls to generate embeddings, which is slow and potentially expensive (not yet implemented for local pre-processing).
+- **No Incremental Processing**: Cannot process data in chunks across multiple Dev agent calls and aggregate results.
+
+### Analysis Constraints
+- **Fixed Analysis Pipeline**: The `consensus_metrics.py` script defines a specific analysis workflow (embeddings → clustering → topics → sentiment). Adding new analysis types requires script modification.
+- **Limited Agent Memory**: Agents cannot reference previous conversation rounds or outputs from past executions (no persistent memory).
+- **Visualization Accessibility**: Visualizations generated by Dev agent in the sandbox cannot be retrieved directly; must be described in stdout or recreated locally.
+
+### Architectural Limitations
+- **Sequential Pipeline**: Agents run sequentially (Whisper → Spec → Dev → Quant). No parallel processing or dynamic agent collaboration.
+- **No Human-in-the-Loop**: Once started, the pipeline runs to completion without opportunities for human intervention or course correction.
+- **Fixed Prompt Structure**: Agent prompts are hardcoded in `agents/agents.py`. Changing agent behavior requires code changes and agent recreation.
+
+## Future Improvements
+
+### Near-Term Enhancements (High Priority)
+
+1. **Local Embedding Pre-computation**
+   - Generate embeddings locally in batches to avoid prompt size limits
+   - Save embeddings to disk and reference them in the Dev agent prompt
+   - Would enable analysis of datasets with 100,000+ rows without API constraints
+
+2. **Chunk-Based Processing**
+   - Split large datasets into chunks
+   - Process each chunk with separate Dev agent calls
+   - Aggregate results in a final synthesis step
+   - Enables truly large-scale analysis (millions of rows)
+
+3. **Visualization Retrieval**
+   - Investigate if Mistral API supports retrieving generated figures from code_interpreter sandbox
+   - Alternative: Have Dev agent generate matplotlib code that main.py can execute locally
+   - Would make visualizations directly accessible without manual recreation
+
+4. **Configurable Analysis Pipelines**
+   - Move analysis configuration to a YAML or JSON file
+   - Allow users to specify which analyses to run (clustering, topics, sentiment, etc.)
+   - Enable custom analysis modules without modifying `consensus_metrics.py`
+
+### Medium-Term Enhancements
+
+5. **Stratified Sampling**
+   - Implement stratified sampling based on metadata columns (e.g., round, participant_id)
+   - Ensures representative samples across categories
+   - Better preserves data structure than pure random sampling
+
+6. **Agent State Persistence**
+   - Save agent conversation history to disk
+   - Enable multi-session analysis where agents can reference previous work
+   - Would support iterative refinement and follow-up questions
+
+7. **Parallel Agent Execution**
+   - Run independent analyses in parallel (e.g., separate Spec agents for different enhancement areas)
+   - Aggregate results from multiple Dev agents
+   - Significantly reduce total pipeline runtime
+
+8. **Interactive Mode**
+   - Add human-in-the-loop checkpoints (e.g., approve Spec's recommendations before Dev implements)
+   - Allow users to provide feedback and request revisions
+   - Implement using Claude Code's `AskUserQuestion` pattern
+
+### Long-Term Vision
+
+9. **Dynamic Agent Orchestration**
+   - Replace fixed pipeline with a coordinator agent that decides which agents to call and in what order
+   - Agents could collaborate iteratively based on intermediate results
+   - Would enable more flexible and adaptive analysis workflows
+
+10. **Multi-Round Analysis Support**
+    - Automatically detect multiple CSV files (e.g., round1.csv, round2.csv)
+    - Perform time-series and comparative analyses across rounds
+    - Track consensus evolution and opinion shifts over time
+
+11. **Embedding Model Fine-tuning**
+    - Fine-tune Mistral embedding model on domain-specific data (deliberative conversations)
+    - Could improve clustering quality and topic coherence
+    - Requires substantial training data and infrastructure
+
+12. **Real-Time Assembly Monitoring**
+    - Integration with email client for live data ingestion
+    - Agents monitor ongoing assemblies and provide real-time insights
+    - Alert facilitators to emerging patterns, consensus points, or divergence
+
+13. **Automated Report Generation**
+    - Generate formatted PDF/HTML reports with embedded visualizations
+    - Include executive summaries, detailed findings, and raw data tables
+    - Customize report templates based on assembly type or stakeholder audience
+
+14. **Multi-Modal Analysis**
+    - Extend beyond text to analyze attachments, links, and multimedia
+    - Sentiment analysis from tone (if audio available)
+    - Network analysis of reply patterns and collaboration structure
+
+## Contributing
+
+This project is under active development. If you encounter issues or have suggestions for improvements, please open an issue on the repository.
+
+Key areas where contributions would be valuable:
+- Local embedding generation workflows
+- Alternative sampling strategies (stratified, importance sampling)
+- Custom analysis modules that extend `consensus_metrics.py`
+- Improved error handling and retry logic for API calls
+- Visualization retrieval or local generation methods
