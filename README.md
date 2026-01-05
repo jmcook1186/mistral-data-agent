@@ -22,60 +22,6 @@ Eventually this will integrate with the email client and other agents such that 
 
 The diagram above illustrates the complete 5-agent architecture and information flow through the system.
 
-## Recent Updates
-
-### Version 2.1 - Critique Agent & Reinforcement Learning Loop (2026-01-05)
-
-**Quasi-Reinforcement Learning System:**
-- Added **Critique agent** as a 5th agent that audits all agent outputs and provides iterative improvements
-- Implements **round-wise refinement** where each pipeline execution improves agent performance for the next run
-- Learning materials accumulate over time, creating a continuous improvement loop similar to reinforcement learning
-- Each run benefits from lessons learned in all previous runs, with feedback acting as reward signals
-
-**Key Features:**
-- **Quality Assurance**: Critique agent examines prompts and outputs from Whisper, Spec, Dev, and Quant for accuracy, clarity, code quality, and actionable insights
-- **Incremental Learning**: Learning materials are appended (not overwritten), building a cumulative knowledge base across runs
-- **Adaptive Prompting**: Whisper's base prompt updated automatically; suggestions for Spec/Dev/Quant integrated into Whisper's prompt design process
-- **Persistent Memory**: Each agent receives its accumulated learning materials from all previous runs at execution time
-
-**How the Learning Loop Works:**
-1. **Execution**: Pipeline runs normally (Whisper → Spec → Dev → Quant)
-2. **Audit**: Critique agent receives all prompts and outputs for comprehensive analysis
-3. **Learning**: Critique generates learning materials for each agent, highlighting strengths and areas for improvement
-4. **Update**: Learning materials saved to `outputs/agent_learning_materials/{agent}_learning.md` (appended to existing content)
-5. **Refinement**: Updated Whisper prompt overwrites `prompts/whisper_message.txt`; suggestions for other agents included in Whisper's prompt file
-6. **Next Iteration**: Agents load their learning materials at runtime, incorporating feedback like RL reward signals
-7. **Continuous Improvement**: Process repeats with knowledge accumulating across runs
-
-**Benefits:**
-- Agents learn from mistakes and successes over time
-- Code quality, analysis depth, and insight clarity improve with each run
-- No manual intervention required—system self-improves automatically
-- Similar to reinforcement learning but using human-interpretable feedback instead of numerical rewards
-
-**See [CHANGELOG.md](CHANGELOG.md) for detailed technical changes.**
-
-### Version 2.0 - Large File Support (2025-12-23)
-
-**Three-Tier Data Handling System:**
-- Implemented automatic file size detection and adaptive data passing strategies
-- **Full Data Mode (< 50KB)**: Complete dataset embedded in agent prompts
-- **Random Sampling Mode (50KB - 500KB)**: Random sample of 500 rows (configurable) for better statistical representation
-- **Summary Statistics Mode (> 500KB)**: Comprehensive summary stats instead of raw data, including descriptive statistics, sample texts, and value counts
-
-**Key Improvements:**
-- Changed from sequential (`head()`) to random sampling for better data representation
-- Added configurable thresholds and sample sizes at the top of `main.py`
-- Comprehensive error handling and status reporting throughout the pipeline
-- Created detailed documentation for handling large files (see `LARGE_FILES.md`)
-
-**Bug Fixes:**
-- Fixed Dev agent tools configuration (separated `web_search` and `code_interpreter` into distinct tool objects)
-- Resolved API input size limit errors ("Failed to persist entries") by implementing intelligent data sampling
-- Fixed remote sandbox file access issue by updating Dev agent to print results to stdout
-- Added type safety for all agent response parsing with proper error handling
-
-**See [CHANGELOG.md](CHANGELOG.md) for detailed technical changes.**
 
 ## Features
 
@@ -478,14 +424,3 @@ The agents work in a sequential pipeline with clear handoffs and continuous impr
     - Extend beyond text to analyze attachments, links, and multimedia
     - Sentiment analysis from tone (if audio available)
     - Network analysis of reply patterns and collaboration structure
-
-## Contributing
-
-This project is under active development. If you encounter issues or have suggestions for improvements, please open an issue on the repository.
-
-Key areas where contributions would be valuable:
-- Local embedding generation workflows
-- Alternative sampling strategies (stratified, importance sampling)
-- Custom analysis modules that extend `consensus_metrics.py`
-- Improved error handling and retry logic for API calls
-- Visualization retrieval or local generation methods
