@@ -31,3 +31,22 @@
 - [Writing Data Requirements: Best Practices](https://qat.com/guide-writing-data-requirements/)
 
 ---
+
+---
+
+\n\n**Key Improvements Needed:**\n- **Clarity and Specificity:** Ensure prompts are unambiguous and include all necessary details (e.g., data schema, expected outputs, edge cases).\n- **Structured Templates:** Use templates (e.g., CRISP-DM) for consistency and completeness.\n- **Audience Awareness:** Tailor prompts to the technical level of the target agent (e.g., Spec vs. Quant).\n- **Reproducibility:** Emphasize the need for random seeds, version control, and detailed methodology in prompts.\n\n**Resources:**\n- [CRISP-DM: The Standard Data Mining Process](https://www.datascience-pm.com/crisp-dm-2/)\n- [How to Write Clear and Actionable Prompts for AI Agents](https://www.promptingguide.ai/)\n- [Data Science Documentation Best Practices](https://www.datascience-pm.com/documentation-best-practices/)\n\n---\n\n
+
+---
+
+**Key Areas for Improvement:**
+- **Clarity and Specificity:** Ensure prompts are clear, specific, and actionable. Use templates (e.g., CRISP-DM) for consistency and completeness.
+- **Evaluation Metrics:** Always include a section on evaluation metrics and success criteria in prompts for Spec and Dev.
+- **Audience Awareness:** Tailor prompts to the intended audience (e.g., technical for Spec, non-technical for Quant).
+- **Data Validation and Edge Cases:** Emphasize the importance of data validation, handling edge cases, and statistical rigor.
+
+**Resources:**
+- [A Practical Guide to Writing Technical Specs](https://stackoverflow.blog/2020/04/06/a-practical-guide-to-writing-technical-specs/)
+- [Data Science Documentation Best Practices](https://www.datascience-pm.com/documentation-best-practices/)
+- [Guide to Writing Data Requirements](https://qat.com/guide-writing-data-requirements/)
+
+---

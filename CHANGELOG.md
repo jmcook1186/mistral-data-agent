@@ -1,5 +1,89 @@
 # Changelog
 
+## Version 2.2 - Code Extraction & Enhanced Quant Analysis (2026-01-07)
+
+### Major Features
+
+#### Automated Code Extraction from Dev Output
+Implemented automatic extraction of Python code from Dev agent's output, making it executable locally:
+
+- **Code Extraction Function**: `extract_python_code()` extracts all Python code blocks from Dev's markdown output
+- **Automatic Saving**: Extracted code saved to `generated_code/analysis.py` with executable permissions
+- **Local Execution**: Users can run `python generated_code/analysis.py` to reproduce visualizations locally
+- **Header Comments**: Generated files include documentation explaining they were created by Dev agent
+
+#### Enhanced Quant Analysis Requirements
+Updated Whisper's instructions to require comprehensive dataset and visualization explanations:
+
+- **Dataset Coverage**: Quant must explain EVERY dataset/dataframe created by Dev
+  - What the dataset contains
+  - How it was derived from raw data
+  - What insights or patterns it reveals
+- **Visualization Coverage**: Quant must explain EVERY visualization created by Dev
+  - What the visualization depicts
+  - Key patterns, trends, or outliers visible
+  - What these patterns mean in context
+- **Critical Requirement**: Quant must explicitly address all Dev outputs, leaving none unexamined
+
+### Implementation Details
+
+1. **Code Extraction** (main.py)
+   - Lines 80-113: New `extract_python_code()` function using regex to find markdown code blocks
+   - Lines 523-547: Extraction and saving logic after Dev output processing
+   - Supports both ````python` and ` ``` ` code fence markers
+   - Handles multiple code blocks and combines them with proper spacing
+
+2. **Generated Code Directory**
+   - Created `generated_code/` subdirectory for all executable analysis code
+   - Moved `consensus_metrics.py` to `generated_code/consensus_metrics.py`
+   - Auto-generated `analysis.py` file saved to same directory
+   - Provides centralized location for all analysis code
+
+3. **Whisper Prompt Updates** (prompts/whisper_message.txt)
+   - Lines 28-33: Added dataset and visualization explanation requirements to Quant prompt
+   - Lines 106, 122-131: Added comprehensive coverage requirements to Quant suggestions
+   - Includes example checklist format for verifying completeness
+
+### Files Modified
+- `main.py` - Added `extract_python_code()` function, code saving logic, and updated file path references (35 lines added)
+- `prompts/whisper_message.txt` - Enhanced Quant requirements for comprehensive coverage
+- `README.md` - Updated project structure, all references to consensus_metrics.py path, added analysis.py documentation
+- `test.py` - Updated import statement to use new module path
+- `create_flow_diagram.py` - Updated visualization text to reflect new file location
+- `.gitignore` - Added generated_code/analysis.py
+- `CHANGELOG.md` - This entry
+
+### Bug Fixes
+1. **File Path References** - Updated all code references from `consensus_metrics.py` to `generated_code/consensus_metrics.py`
+   - Fixed main.py script loading (line 129)
+   - Fixed test.py import statement (line 14)
+   - Updated flow diagram visualization text
+
+2. **Dev Code Extraction Issue** - Dev was executing code but not including it in text responses
+   - Added explicit instruction to Dev prompt: "Include ALL Python code wrapped in markdown code blocks"
+   - Without this, Dev executes code via tool but doesn't include it in MessageOutputEntry content
+   - Code extraction function needs code in markdown format (` ```python `) to extract from text
+   - Fix applied to both full/sample data mode (line 434) and summary statistics mode (line 401)
+
+### Files Moved
+- `consensus_metrics.py` → `generated_code/consensus_metrics.py`
+
+### Files Created
+- `generated_code/` - New directory for executable analysis code
+- `generated_code/__init__.py` - Package initialization file
+- `generated_code/README.md` - Documentation for generated code directory
+- `generated_code/analysis.py` - Auto-generated file containing extracted Dev code (created each run)
+
+### Benefits
+
+1. **Reproducibility**: Users can execute Dev's code locally to regenerate visualizations
+2. **Transparency**: All analysis code is visible and editable in `generated_code/`
+3. **Debugging**: Easier to debug and modify generated code when needed
+4. **Comprehensive Reports**: Quant now provides complete explanations of all Dev outputs
+5. **Organization**: Clear separation between system code and generated analysis code
+
+---
+
 ## Version 2.1 - Critique Agent & Reinforcement Learning Loop (2026-01-05)
 
 ### Major Features

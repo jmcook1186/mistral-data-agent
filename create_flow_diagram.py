@@ -29,7 +29,7 @@ ax.text(1.05, 10.15, 'CSV Data File\n(position_text)', ha='center', va='center',
 script_box = FancyBboxPatch((4.5, 9.8), 2, 0.7, boxstyle="round,pad=0.1",
                             edgecolor='black', facecolor=color_data, linewidth=2)
 ax.add_patch(script_box)
-ax.text(5.5, 10.15, 'Analysis Script\n(consensus_metrics.py)', ha='center', va='center', fontsize=8, fontweight='bold')
+ax.text(5.5, 10.15, 'Analysis Script\n(generated_code/\nconsensus_metrics.py)', ha='center', va='center', fontsize=7, fontweight='bold')
 
 # 2. Whisper Prompt
 whisper_prompt_box = FancyBboxPatch((0.3, 8), 1.5, 0.7, boxstyle="round,pad=0.1",

@@ -11,7 +11,7 @@ from sklearn.feature_extraction.text import CountVectorizer
 from scipy.stats import f_oneway
 from textblob import TextBlob
 import seaborn as sns
-from consensus_metrics import (
+from generated_code.consensus_metrics import (
     embeddings_model,
     reduce_dimensions,
     get_optimum_n_clusters,

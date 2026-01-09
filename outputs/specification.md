@@ -1,21 +1,14 @@
-### **Technical Specification: Asynchronous Email Assembly Analysis**
+### **Technical Specification: Asynchronous Email Conversation Analysis**
 
-**Author:** Spec
-**Version:** 1.0
-**Date:** 2026-01-05
-**Target Audience:** Dev (Mistral AI Agent)
+**Objective:**
+This specification details the requirements and methodology for analyzing asynchronous email conversations ("assemblies") to quantify thematic convergence, assess sentiment evolution, and identify participant dynamics across rounds. The output will enable stakeholders to understand how discussions evolve over time and identify key participants or themes.
 
 ---
 
-## **1. Overview**
-This spec defines the implementation for analyzing asynchronous email-based "assemblies" (structured conversations with fixed participants and rounds). The goal is to quantify **thematic convergence**, **sentiment evolution**, and **participant dynamics** using Python, Pandas, Scikit-learn, Matplotlib, and Seaborn.
+## **1. Data Validation & Preprocessing**
 
----
-
-## **2. Data Schema & Validation**
-
-### **Input Data**
-- CSV files with columns:
+### **Data Requirements**
+- **Input:** CSV files with the following columns:
   - `round_id` (int)
   - `participant_id` (str)
   - `position_text` (str)
@@ -23,147 +16,142 @@ This spec defines the implementation for analyzing asynchronous email-based "ass
   - `theme` (str)
   - `timestamp` (datetime)
 
-### **Validation & Preprocessing**
-- **Missing Values:**
-  - Log missing values by column.
-  - Impute missing `sentiment_score` with the median of the participant’s other scores.
-  - Drop rows missing `position_text` or `theme`.
-- **Outliers:**
-  - Flag `sentiment_score` outside [-1, 1].
-  - Log participants with >20% missing data.
-- **Standardization:**
-  - Convert `timestamp` to UTC.
-  - Ensure `round_id` is sequential and starts at 1.
+- **Validation Steps:**
+  1. **Missing Values:**
+     - Drop rows missing `round_id`, `participant_id`, or `position_text`.
+     - Impute missing `sentiment_score` with the median of the participant's other scores, if available; else, drop.
+     - Flag missing `theme` as "unknown" and exclude from thematic analysis.
+  2. **Duplicates:**
+     - Remove exact duplicates (same `participant_id`, `round_id`, and `position_text`).
+  3. **Outliers:**
+     - For `sentiment_score`, use IQR: exclude scores outside [Q1 - 1.5*IQR, Q3 + 1.5*IQR].
+  4. **Schema Confirmation:**
+     - Log any discrepancies and propose adjustments (e.g., casting `round_id` to int).
 
-**Output:**
-- Log file (`data_issues.txt`) with summary of issues and handling.
-- Cleaned DataFrame for analysis.
+- **Preprocessing:**
+  - **Text Normalization:**
+    - Lowercase, remove stopwords, lemmatize using `nltk` or `spaCy`.
+    - Use `CountVectorizer` with `max_df=0.95`, `min_df=2`, and custom stopwords.
+  - **Sentiment Binning:**
+    - Bin `sentiment_score` into "negative" (<-0.1), "neutral" (-0.1 to 0.1), "positive" (>0.1).
 
 ---
 
-## **3. Core Analyses**
+## **2. Methodology**
 
-### **A. Thematic Convergence**
-- **Jaccard Similarity:**
-  - For each pair of rounds, compute Jaccard similarity of themes.
-  - Output: Heatmap (Seaborn) of similarity between rounds.
-- **Theme Clustering:**
-  - Vectorize themes using `TfidfVectorizer`.
-  - Cluster using K-means, with *k* determined by the elbow method.
-  - Add `theme_cluster` column to DataFrame.
+### **A. Thematic Analysis**
+- **Clustering:**
+  - Use **TF-IDF + K-Means** (preferred) or **LDA** for thematic clustering.
+  - **Number of Clusters:** Use the elbow method and silhouette score to determine optimal `k`.
+  - **Similarity Metric:** Calculate **Jaccard similarity** between rounds to quantify thematic convergence.
+- **Output:**
+  - `thematic_clusters.csv`: Cluster assignments, centroid terms, and Jaccard similarities.
 
-**Code Hint:**
-```python
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.cluster import KMeans
-vectorizer = TfidfVectorizer()
-X = vectorizer.fit_transform(df["theme"])
-kmeans = KMeans(n_clusters=3, random_state=42).fit(X)
-```
-
-### **B. Sentiment Evolution**
-- **Trend Analysis:**
-  - Line plot (Seaborn) of `sentiment_score` by `round_id`, grouped by `participant_id` and `theme`.
-  - Add 95% confidence intervals.
-- **Statistical Testing:**
-  - Kruskal-Wallis test for significant changes in sentiment across rounds.
-
-**Code Hint:**
-```python
-import seaborn as sns
-sns.lineplot(data=df, x="round_id", y="sentiment_score", hue="participant_id", ci=95)
-```
+### **B. Sentiment Analysis**
+- **Statistical Tests:**
+  - Kruskal-Wallis for overall differences across rounds.
+  - Mann-Whitney U for pairwise comparisons.
+  - Report p-values, effect sizes (Cliff’s Delta), and 95% confidence intervals.
+- **Output:**
+  - `sentiment_stats.csv`: Mean/median sentiment per round, statistical test results.
 
 ### **C. Participant Dynamics**
-- **Network Graph:**
-  - Construct a weighted graph (NetworkX) where nodes are participants and edges are weighted by theme overlap (Jaccard similarity).
-  - Visualize with `matplotlib`.
-- **Outlier Detection:**
-  - Flag participants with consistently low thematic alignment (e.g., Jaccard < 0.2 for all rounds).
+- **Consistency Metric:**
+  - Compute cosine similarity of participants' positions across rounds.
+  - Flag outliers (participants with consistency <0.3 or sentiment shifts >2σ).
+- **Output:**
+  - `participant_consistency.csv`: Consistency scores and outlier flags.
 
-**Code Hint:**
+---
+
+## **3. Visualizations**
+
+### **A. Thematic Convergence**
+- **Heatmap:**
+  - Axes: `round_id` (x and y).
+  - Color scale: Viridis (0–1 similarity).
+  - Title: "Thematic Convergence Across Rounds (Jaccard Similarity)".
+
+### **B. Sentiment Trends**
+- **Boxplot:**
+  - Axes: `round_id` (x), `sentiment_score` (y).
+  - Color: Coolwarm diverging palette.
+  - Annotate p-values for significant differences.
+
+### **C. Participant Trajectories**
+- **Line Plot:**
+  - Facet by `participant_id` if >10 participants; else, use distinct colors.
+  - Highlight outliers with dashed lines.
+
+---
+
+## **4. Outputs**
+
+- **Tables:**
+  - `thematic_clusters.csv`
+  - `sentiment_stats.csv`
+  - `participant_consistency.csv`
+- **Plots:**
+  - Save as PNG/PDF (DPI=300).
+  - Include raw data (`.pickle`) for reproducibility.
+- **Metrics:**
+  - Thematic convergence score (mean Jaccard similarity).
+  - Sentiment trend slope (linear regression of median sentiment over rounds).
+
+---
+
+## **5. Edge Cases**
+
+- **Sparse Data:** Flag rounds with <3 participants as unreliable; exclude from longitudinal analysis.
+- **Single-Round Data:** Skip sentiment trend analysis.
+- **Ties in Clustering:** Use deterministic seeding (`random_state=42`).
+
+---
+
+## **6. Evaluation Metrics**
+
+- **Success Criteria:**
+  - Thematic convergence score ≥0.6.
+  - Sentiment trend slope ≠0 with p<0.05.
+- **Cost-Benefit:**
+  - Prefer K-Means for speed; use LDA for interpretability.
+
+---
+
+## **7. Deliverables**
+
+- **Markdown File (`spec.md`):**
+  - Sections: Objective, Data Validation, Methodology, Outputs, Edge Cases, Evaluation.
+- **Pseudocode Snippets:**
+  - Provide in a `code_hints/` directory.
+
+---
+
+## **8. Code Hints**
+
 ```python
-import networkx as nx
-G = nx.Graph()
-# Add nodes and edges based on theme overlap
-nx.draw(G, with_labels=True)
-```
-
----
-
-## **4. Visualizations**
-
-- **Heatmap:** Jaccard similarity between rounds (Seaborn).
-- **Line Plot:** Sentiment trends (Seaborn, with confidence intervals).
-- **Network Graph:** Participant interactions (NetworkX + Matplotlib).
-- **Save all visualizations as PNG (300 DPI, labeled axes).**
-
----
-
-## **5. Edge Cases & Constraints**
-
-- **Sparse Data:**
-  - Skip rounds with <3 participants.
-  - Log skipped rounds.
-- **Missing Data:**
-  - Exclude participants with >20% missing data from network analysis.
-- **Constraints:**
-  - Use only Python (Pandas, Scikit-learn, Matplotlib/Seaborn, NetworkX).
-  - No external APIs or proprietary tools.
-
----
-
-## **6. Outputs**
-
-- **CSV:** Processed data with added metrics (`theme_cluster`, `sentiment_change`).
-- **PNG:** All visualizations.
-- **TXT:** Log of data issues and handling decisions.
-
----
-
-## **7. Implementation Notes for Dev**
-
-- **Modularity:**
-  - Implement each analysis (thematic, sentiment, network) as a separate function.
-  - Use `pandas` for data manipulation, `scikit-learn` for clustering/testing, and `seaborn/matplotlib` for visualization.
-- **Error Handling:**
-  - Log errors and continue with available data.
-- **Performance:**
-  - Vectorize operations where possible.
-  - Use `n_jobs=-1` for parallelizable Scikit-learn functions.
-
----
-
-## **8. Example Workflow**
-
-```python
-import pandas as pd
+# Example: Jaccard similarity between rounds
 from sklearn.metrics import jaccard_score
-import seaborn as sns
-import networkx as nx
+from itertools import combinations
 
-def analyze_assembly(df):
-    # Preprocess
-    df = preprocess_data(df)
+rounds = df.groupby('round_id')['position_text'].apply(set)
+round_pairs = list(combinations(rounds.index, 2))
+similarities = {
+    f"round_{i}_vs_{j}": jaccard_score(rounds[i], rounds[j])
+    for i, j in round_pairs
+}
 
-    # Thematic convergence
-    jaccard_matrix = compute_jaccard(df)
-    plot_jaccard_heatmap(jaccard_matrix)
+# Example: Kruskal-Wallis test
+from scipy.stats import kruskal
 
-    # Sentiment evolution
-    plot_sentiment_trends(df)
-
-    # Participant dynamics
-    G = build_network(df)
-    plot_network(G)
-
-    return df, jaccard_matrix, G
+round_groups = [group['sentiment_score'].values for name, group in df.groupby('round_id')]
+stat, p = kruskal(*round_groups)
 ```
 
 ---
 
 **Next Steps for Dev:**
-- Implement data validation and preprocessing.
-- Build modular functions for each analysis.
-- Generate visualizations and outputs as specified.
-- Log all data issues and handling decisions.
+- Implement data validation and preprocessing as specified.
+- Use the provided pseudocode for clustering, statistical tests, and visualization.
+- Output tables and plots in the required formats.
+- Handle edge cases with logging and warnings.

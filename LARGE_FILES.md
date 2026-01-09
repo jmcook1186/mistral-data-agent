@@ -118,7 +118,7 @@ For very large files (> 1MB), consider pre-processing before running the pipelin
    ```
 
 3. **Pass pre-computed embeddings:**
-   Modify `consensus_metrics.py` to accept pre-computed embeddings instead of generating them
+   Modify `generated_code/consensus_metrics.py` to accept pre-computed embeddings instead of generating them
 
 ## Understanding the Tradeoffs
 
